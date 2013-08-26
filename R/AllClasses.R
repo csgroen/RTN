@@ -1,0 +1,59 @@
+##Class TNI (Transcriptional Network Inference)
+setClass(
+  "TNI",
+  representation(
+    gexp="matrix",
+    transcriptionFactors="char_Or_null",
+    modulators="char_Or_null",
+    annotation="data.frame",
+    para="list",
+    results="list",
+    summary="list",
+    status="character"
+  ),
+  prototype=list(
+    gexp=matrix(),
+    transcriptionFactors=character(),
+    modulators=character(),
+    annotation=data.frame(),
+    para=list(),
+    results=list(),
+    summary=list(),
+    status=character()
+  )
+)
+
+##Class TNA (Transcriptional Network Analysis)
+setClass(
+  "TNA",
+  representation(
+    referenceNetwork="matrix",
+    transcriptionalNetwork="matrix",
+    transcriptionFactors="char_Or_null",
+    phenotype="num_Or_int_Or_null", 
+    hits="char_Or_null",
+    annotation="data.frame",
+    listOfReferenceRegulons="list",
+    listOfRegulons="list",
+    listOfModulators="list",
+    para="list",
+    results="list",
+    summary="list",
+    status="list"
+  ),
+  prototype=list(
+    referenceNetwork=matrix(),
+    transcriptionalNetwork=matrix(),
+    transcriptionFactors=character(),
+    phenotype=numeric(),
+    hits=character(),
+    annotation=data.frame(),
+    listOfReferenceRegulons=list(),
+    listOfRegulons=list(),
+    listOfModulators=list(),
+    para=list(),
+    results=list(),
+    summary=list(),
+    status=list()
+  )
+)

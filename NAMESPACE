@@ -1,0 +1,33 @@
+exportClasses(
+ "TNI",
+ "TNA"
+)
+
+export(
+  "tna.plot.gsea1",
+  "tna.plot.gsea2"
+)
+
+exportMethods(
+  "tni.preprocess",
+  "tni.permutation",
+  "tni.bootstrap",
+  "tni.dpi.filter",
+  "tni.get",
+  "tni.graph",
+  "tni.conditional",
+  "tni2tna.preprocess",
+  "tna.mra",
+  "tna.gsea1",
+  "tna.gsea2",
+  "tna.overlap",
+  "tna.synergy",
+  "tna.shadow",
+  "tna.get",
+  "tna.graph"
+)
+
+importFrom(minet, aracne)
+importFrom(snow, parSapply, parLapply, makeCluster, stopCluster)
+importFrom(limma, lmFit, makeContrasts, eBayes, contrasts.fit, decideTests)
+importFrom(RedeR, att.mapv, att.setv, att.sete)

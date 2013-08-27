@@ -1,5 +1,5 @@
-%\VignetteIndexEntry{Main vignette:Transcriptional Network Inference and Analysis of Master Regulators in R}
-%\VignetteKeywords{Transcriptional Network Inference and Analysis of Master Regulators in R}
+%\VignetteIndexEntry{Main vignette:Reconstruction and analysis of transcriptional networks in R}
+%\VignetteKeywords{Reconstruction and analysis of transcriptional networks in R}
 %\VignettePackage{RTN}
 
 \documentclass[11pt]{article}

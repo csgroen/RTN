@@ -1,7 +1,7 @@
 Package: RTN
 Type: Package
-Title: Reconstruction of Transcriptional Networks and Analysis of Master Regulators
-Version: 0.99.3
+Title: Reconstruction of transcriptional networks and analysis of master regulators
+Version: 0.99.4
 Date: 2013-08-26
 Author: Mauro Castro, Xin Wang, Michael Fletcher, Florian Markowetz and Kerstin Meyer
 Maintainer: Mauro Castro <mauro.a.castro@gmail.com>

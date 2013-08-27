@@ -8,7 +8,7 @@ Maintainer: Mauro Castro <mauro.a.castro@gmail.com>
 Depends: R (>= 2.15), methods, igraph
 Imports: minet, snow, limma, RedeR (>= 1.8.1)
 Suggests: HTSanalyzeR, RUnit, BiocGenerics
-Description: This package provides classes and methods for transcriptional network inference and and analysis. Modulators of transcription factor activity are assessed by conditional mutual information, and master regulators are mapped to phenotypes using different strategies, e.g., gene set enrichment, shadow and synergy analyses.
+Description: This package provides classes and methods for transcriptional network inference and analysis. Modulators of transcription factor activity are assessed by conditional mutual information, and master regulators are mapped to phenotypes using different strategies, e.g., gene set enrichment, shadow and synergy analyses.
 License: Artistic-2.0
 biocViews: CellBasedAssays, Bioinformatics, MultipleComparisons
 Collate:

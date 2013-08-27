@@ -1,4 +1,4 @@
-%\VignetteIndexEntry{Main vignette:Reconstruction and analysis of transcriptional networks in R}
+%\VignetteIndexEntry{Main vignette: reconstruction and analysis of transcriptional networks in R}
 %\VignetteKeywords{Reconstruction and analysis of transcriptional networks in R}
 %\VignettePackage{RTN}
 

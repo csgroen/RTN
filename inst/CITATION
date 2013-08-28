@@ -1,6 +1,6 @@
 citEntry(entry = "Article",
   author = "Michael Fletcher and Mauro Castro and Xin Wang and Ines de Santiago and Martin O'Reilly and et al.",
-  title = "Master regulators of {FGFR2} signalling and breast cancer risk.",
+  title = "Master regulators of FGFR2 signalling and breast cancer risk.",
   journal = "Nature Communications",
   year = "2013 (accepted)",
   note = "RTN: reconstruction of transcriptional networks and analysis of master regulators. R package, 2013.",

@@ -1308,7 +1308,7 @@ data.integration<-function(object, verbose){
       col0<-sapply(1:ncol(object@annotation),function(i){
         sum(rownames(object@annotation)%in%object@annotation[,i],na.rm=TRUE)
       })
-      if(max(col0)==nrow(annot)){
+      if(max(col0)==nrow(object@annotation)){
         col0 <- which(col0==max(col0))[1]
       } else {
         col0<-0
@@ -1317,7 +1317,7 @@ data.integration<-function(object, verbose){
       idx<-match(uninames,object@annotation[,1])
       object@annotation<-object@annotation[idx,]
       rownames(object@annotation)<-object@annotation[,1]
-      object@annotation<-object@annotation[,-col0] #agora da pra tirar!
+      object@annotation<-object@annotation[,-col0,drop=FALSE] #agora da pra remover!
       ##-----check ordering
       tp1<-rownames(object@annotation)
       tp2<-rownames(object@transcriptionalNetwork)

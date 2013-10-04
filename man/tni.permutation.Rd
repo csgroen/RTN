@@ -88,6 +88,7 @@ rtni<-tni.preprocess(rtni,gexpIDs=dt4rtn$gexpIDs)
 rtni<-tni.permutation(rtni)
 
 # parallel version with SNOW package!
+library(snow)
 options(cluster=makeCluster(4, "SOCK"))
 rtni<-tni.permutation(rtni,parChunks=50)
 stopCluster(getOption("cluster"))

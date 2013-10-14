@@ -1,7 +1,7 @@
 Package: RTN
 Type: Package
 Title: Reconstruction of transcriptional networks and analysis of master regulators
-Version: 0.99.7
+Version: 0.99.8
 Date: 2013-10-05
 Author: Mauro Castro, Xin Wang, Michael Fletcher, Florian Markowetz and Kerstin Meyer
 Maintainer: Mauro Castro <mauro.a.castro@gmail.com>
@@ -11,6 +11,7 @@ Suggests: HTSanalyzeR, RUnit, BiocGenerics
 Description: This package provides classes and methods for transcriptional network inference and analysis. Modulators of transcription factor activity are assessed by conditional mutual information, and master regulators are mapped to phenotypes using different strategies, e.g., gene set enrichment, shadow and synergy analyses.
 License: Artistic-2.0
 biocViews: NetworkInference, NetworkAnalysis, NetworkEnrichment, GeneRegulation, GeneExpression, GraphsAndNetworks
+URL: http://dx.doi.org/10.1038/ncomms3464
 Collate:
   ClassUnions.R
   AllChecks.R

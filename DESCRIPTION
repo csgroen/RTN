@@ -1,24 +1,25 @@
 Package: RTN
 Type: Package
-Title: Reconstruction of transcriptional networks and analysis of master regulators
-Version: 1.1.1
+Title: Reconstruction of transcriptional networks and analysis of
+        master regulators
+Version: 1.1.2
 Date: 2013-10-05
-Author: Mauro Castro, Xin Wang, Michael Fletcher, Florian Markowetz and Kerstin Meyer
+Author: Mauro Castro, Xin Wang, Michael Fletcher, Florian Markowetz and
+        Kerstin Meyer
 Maintainer: Mauro Castro <mauro.a.castro@gmail.com>
 Depends: R (>= 2.15), methods, igraph
 Imports: minet, snow, limma, RedeR (>= 1.8.1)
 Suggests: HTSanalyzeR, RUnit, BiocGenerics
-Description: This package provides classes and methods for transcriptional network inference and analysis. Modulators of transcription factor activity are assessed by conditional mutual information, and master regulators are mapped to phenotypes using different strategies, e.g., gene set enrichment, shadow and synergy analyses.
+Description: This package provides classes and methods for
+        transcriptional network inference and analysis. Modulators of
+        transcription factor activity are assessed by conditional
+        mutual information, and master regulators are mapped to
+        phenotypes using different strategies, e.g., gene set
+        enrichment, shadow and synergy analyses.
 License: Artistic-2.0
-biocViews: NetworkInference, NetworkAnalysis, NetworkEnrichment, GeneRegulation, GeneExpression, GraphsAndNetworks
 URL: http://dx.doi.org/10.1038/ncomms3464
-Collate:
-  ClassUnions.R
-  AllChecks.R
-  AllClasses.R
-  AllGenerics.R
-  AllSupplements.R
-  AllPlots.R
-  TNA-methods.R
-  TNI-methods.R
+Collate: ClassUnions.R AllChecks.R AllClasses.R AllGenerics.R
+        AllSupplements.R AllPlots.R TNA-methods.R TNI-methods.R
 LazyLoad: yes
+biocViews: NetworkInference, Network, NetworkEnrichment,
+        GeneRegulation, GeneExpression, GraphAndNetwork

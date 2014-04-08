@@ -8,8 +8,8 @@ setMethod("initialize",
           "TNI",
           function(.Object, gexp, transcriptionFactors) {
             ##-----check arguments
-            if(missing(gexp))stop("NOTE: 'gexp' is missing!")    
-            if(missing(transcriptionFactors))stop("NOTE: 'transcriptionFactors' is missing!")            
+            if(missing(gexp))stop("NOTE: 'gexp' is missing!",call.=FALSE)    
+            if(missing(transcriptionFactors))stop("NOTE: 'transcriptionFactors' is missing!",call.=FALSE)            
             tnai.checks(name="gexp",gexp)
             tnai.checks(name="transcriptionFactors",transcriptionFactors)
             ##-----initialization
@@ -39,8 +39,8 @@ setMethod("initialize",
             colnames(sum.info.para$dpi)<-c("eps")       
             rownames(sum.info.para$dpi)<-"Parameter"
             sum.info.para$cdt<-matrix(,1,8)
-            colnames(sum.info.para$cdt)<-c("sampling", "pValueCutoff","pAdjustMethod","statFilter","statUniverse",
-                                           "minRegulonSize","minIntersectSize","miThreshold")
+            colnames(sum.info.para$cdt)<-c("sampling","pValueCutoff","pAdjustMethod","minRegulonSize",
+                                           "minIntersectSize","miThreshold","prob","pwtransform")
             rownames(sum.info.para$cdt)<-"Parameter"
             ##-----results
             sum.info.results<-list()
@@ -62,15 +62,15 @@ setMethod(
     tnai.checks(name="cvfilter",para=cvfilter)
     tnai.checks(name="verbose",para=verbose)
     ##-----preprocessing
-    if(verbose)cat("-Preprocessing for input data ...\n")
+    if(verbose)cat("-Preprocessing for input data...\n")
     ##-----check gexpIDs if available
     if(!is.null(gexpIDs)){
-      if(verbose)cat("--Mapping 'gexp' to 'gexpIDs' ...\n")
+      if(verbose)cat("--Mapping 'gexp' to 'gexpIDs'...\n")
       if( any(!rownames(object@gexp)%in%rownames(gexpIDs)) ){
-        stop("NOTE: all rownames in 'gexp' should be available in 'gexpIDs'!")
+        stop("NOTE: all rownames in 'gexp' should be available in col1 of 'gexpIDs'!",call.=FALSE)
       }
       if(cvfilter){
-        if(verbose)cat("--Removing duplicated genes (keep max coefficient of variation!) ...\n")
+        if(verbose)cat("--Removing duplicated genes (keep max coefficient of variation!)...\n")
         #i.e. col1=probe, col2=gene (collapse cv by col2)
         cvres<-cv.filter(object@gexp, gexpIDs)
         object@gexp<-cvres$gexp
@@ -78,30 +78,36 @@ setMethod(
       } else {
         #or leave by the user!!!
         object@annotation<-gexpIDs[rownames(object@gexp),]
+        tp1<-paste("by setting 'cvfilter=FALSE', please note that both 'gexp' and 'gexpIDs'\n")
+        tp2<-paste("should be provided with unique and matched probe-to-gene identifiers!", sep="")          
+        if(verbose)warning(tp1,tp2,call.=FALSE)
       }
-      #correct 'symbol' name if a valid label
-      labs<-c("SYMBOL","symbol","Symbol")
-      idx<-which(labs%in%colnames(object@annotation))
-      if(length(idx)>0){
-        if(all(idx!=1)){
-          labs<-labs[idx]
-          idx<-which(colnames(object@annotation)==labs)
-          colnames(object@annotation)[idx]<-"SYMBOL"
-        }
+      #correct 'symbol' column if a valid name 
+      #ps. annotation is already check for duplicated col names!
+      idx<-toupper(colnames(object@annotation))%in%"SYMBOL"
+      if(any(idx)){
+        idx<-which(idx)[1]
+        colnames(object@annotation)[idx]<-"SYMBOL"
         #..remove any empty space or NA from SYMBOL!!!
+        object@annotation$SYMBOL<-as.character(object@annotation$SYMBOL)
         idx<-is.na(object@annotation$SYMBOL)
         object@annotation$SYMBOL[idx]<-rownames(object@annotation)[idx]
         idx<-object@annotation$SYMBOL==""|object@annotation$SYMBOL=="NA"
         object@annotation$SYMBOL[idx]<-rownames(object@annotation)[idx]
+      } else {
+        tp1<-paste("NOTE: to get better gene summary across the pipelines, 'gexpIDs' annotation\n")
+        tp2<-paste("should provide an extra column named SYMBOL!", sep="")       
+        if(verbose)warning(tp1,tp2,call.=FALSE)
       }
     }
+    
     #-----check TFs in gexp
     object@summary$tfs[,"input"]<-length(object@transcriptionFactors)
-    if(verbose) cat("--Checking TFs in the dataset ...\n")
+    if(verbose) cat("--Checking TFs in the dataset...\n")
     idxtfs<-object@transcriptionFactors%in%rownames(object@gexp)
     object@transcriptionFactors<-object@transcriptionFactors[idxtfs]
     object@summary$tfs[,"valid"]<-length(object@transcriptionFactors)
-    if(length(object@transcriptionFactors)==0)stop("NOTE: input 'transcriptionFactors' contains no useful data!\n")
+    if(length(object@transcriptionFactors)==0)stop("NOTE: input 'transcriptionFactors' contains no useful data!\n",call.=FALSE)
     ##-----make sure 'transcriptionFactors' is a named character vector
     if(!is.character(object@transcriptionFactors)){
       nm<-names(object@transcriptionFactors)
@@ -124,7 +130,9 @@ setMethod(
       if(!is.null(object@annotation$SYMBOL)){
         tp<-object@annotation[object@transcriptionFactors,"SYMBOL"]
         if(any(tp!=names(object@transcriptionFactors))){
-          warning("one or more symbols in the named vector 'transcriptionFactors' seem to differ from 'gexpIDs'!")
+          tp1<-"NOTE: inconsistent symbol(s) found in the named vector 'transcriptionFactors'!\n"
+          tp2<-"Please, use symbols consistent with col <SYMBOL> in 'gexpIDs'!"
+          warning(tp1,tp2)
         }
       }
     }
@@ -245,7 +253,7 @@ setMethod(
     tnai.checks(name="TNI",para=object)
     tnai.checks(name="phenotype",para=phenotype)
     tnai.checks(name="hits",para=hits)
-    phenoIDs<-tnai.checks(name="phenoIDs",para=phenoIDs)  
+    phenoIDs<-tnai.checks(name="phenoIDs",para=phenoIDs)
     tnai.checks(name="duplicateRemoverMethod",para=duplicateRemoverMethod)
     tnai.checks(name="verbose",para=verbose)
     ##-----generate a new object of class TNA
@@ -256,7 +264,7 @@ setMethod(
                    phenotype=phenotype,
                    hits=hits)
     if(nrow(object@annotation)>0).object@annotation<-object@annotation
-    if(!is.null(object@results$conditional)>0){
+    if(!is.null(object@results$conditional) && length(object@results$conditional)>0){
       cdt<-tni.get(object,what="cdt")
       lmod<-lapply(cdt,function(reg){
         if(nrow(reg)>0){
@@ -281,26 +289,34 @@ setMethod(
 setMethod(
   "tni.get",
   "TNI",
-  function(object, what="summary", order=TRUE, ntop=NULL, reportNames=TRUE) {
+  function(object, what="summary", order=TRUE, ntop=NULL, reportNames=TRUE, idkey=NULL) {
     ##-----reset compatibility with old args
     if(what=="tn.dpi")what="tnet"
     if(what=="tn.ref")what="refnet"
     ##-----check input arguments
     tnai.checks(name="tni.what",para=what)
     tnai.checks(name="ntop",para=ntop)
-    tnai.checks(name="report",para=report)
+    tnai.checks(name="idkey",para=idkey)
+    tnai.checks(name="reportNames",para=reportNames)
     ##-----get query
-    query<-NULL  
+    query<-NULL
     if(what=="gexp"){
       query<-object@gexp
+      if(!is.null(idkey))
+        query<-translateQuery(query,idkey,object,"matrixAndNames",reportNames)
     } else if(what=="tfs"){
       query<-object@transcriptionFactors
+      if(!is.null(idkey))query<-translateQuery(query,idkey,object,"vecAndContent",reportNames)
     } else if(what=="para"){
       query<-object@para
     } else if(what=="refnet"){
       query<-object@results$tn.ref
+      if(is.null(query))stop("NOTE: empty slot!",call.=FALSE)
+      if(!is.null(idkey))query<-translateQuery(query,idkey,object,"matrixAndNames",reportNames)
     } else if(what=="tnet"){
       query<-object@results$tn.dpi
+      if(is.null(query))stop("NOTE: empty slot!",call.=FALSE)
+      if(!is.null(idkey))query<-translateQuery(query,idkey,object,"matrixAndNames",reportNames)
     } else if(what=="refregulons" || what=="refregulons.and.mode"){
       query<-list()
       for(i in object@transcriptionFactors){
@@ -313,6 +329,9 @@ setMethod(
           names(tp)<-query[[i]]
           query[[i]]<-tp
         }
+        if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndNames",reportNames)
+      } else {
+        if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndContent",reportNames)
       }
     } else if(what=="regulons" || what=="regulons.and.mode"){
       query<-list()
@@ -326,56 +345,106 @@ setMethod(
           names(tp)<-query[[i]]
           query[[i]]<-tp
         }
+        if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndNames",reportNames)
+      } else {
+        if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndContent",reportNames)
       }
-    } else if(what=="cdt"){
+    } else if(what=="cdt" || what=="cdtrev"){
       query<-object@results$conditional$count
+      for(nm in names(query)){
+        qry<-query[[nm]]
+        qry<-qry[qry[,"IConstraint"]==0,-2,drop=FALSE]
+        qry<-qry[qry[,"RConstraint"]==0,-2,drop=FALSE]
+        query[[nm]]<-qry
+      }
+      if(what=="cdtrev")query<-cdtReverse(query,object@para$cdt$pAdjustMethod)
       if(is.null(ntop)){
-        for(md in names(query)){
-          qry<-query[[md]]
-          qry<-qry[qry[,"IConstraint"]==0,-2,drop=FALSE]
-          qry<-qry[qry[,"RConstraint"]==0,-2,drop=FALSE]
-          qry<-qry[qry[,"AdjustedPvalue"] <= object@para$cdt$pValueCutoff,,drop=FALSE]
-          if(order && nrow(qry)>1)qry<-qry[sort.list(qry[,"Pvalue"]),,drop=FALSE]
-          query[[md]]<-qry
+        for(nm in names(query)){
+          qry<-query[[nm]]
+          qry<-qry[qry[,"AdjPvFET"] <= object@para$cdt$pValueCutoff,,drop=FALSE]
+          qry<-qry[qry[,"AdjPvKS"] <= object@para$cdt$pValueCutoff,,drop=FALSE]
+          query[[nm]]<-qry
         }
       } else {
-        for(md in names(query)){
-          qry<-query[[md]]
-          qry<-qry[qry[,"IConstraint"]==0,-2,drop=FALSE]
-          qry<-qry[qry[,"RConstraint"]==0,-2,drop=FALSE]
+        for(nm in names(query)){
+          qry<-query[[nm]]
           qryntop<-ntop
           if(nrow(qry)>1){
             if(qryntop>nrow(qry) || qryntop<0)qryntop=nrow(qry)
-            idx<-sort.list(qry[,"Pvalue"]) 
+            idx<-sort.list(qry[,"PvKS"]) 
             qry<-qry[idx[1:qryntop],,drop=FALSE]
-            query[[md]]<-qry
+            query[[nm]]<-qry
           }
         }
       }
+      query<-query[unlist(lapply(query,nrow))>0]
       if(reportNames){
-        for(md in names(query)){
-          if(nrow(query[[md]])>0){
-            idx<-match(query[[md]][,"Modulator"],object@modulators)
-            query[[md]][,"Modulator"]<-names(object@modulators)[idx]
-            idx<-match(query[[md]][,"TF"],object@transcriptionFactors)
-            query[[md]][,"TF"]<-names(object@transcriptionFactors)[idx]
+        for(nm in names(query)){
+          if(nrow(query[[nm]])>0){
+            idx<-match(query[[nm]][,"Modulator"],object@modulators)
+            query[[nm]][,"Modulator"]<-names(object@modulators)[idx]
+            idx<-match(query[[nm]][,"TF"],object@transcriptionFactors)
+            query[[nm]][,"TF"]<-names(object@transcriptionFactors)[idx]
           }
         }
       }
+      #sort 1st list hierarchy by nrow
+      if(length(query)>0)query<-sortblock.cdt(query)
+      if(!is.null(idkey))warning("'idkey' argument has no effect on consolidated tables!")
     } else if(what=="summary"){
       query<-object@summary
     } else if(what=="status"){
       query<-object@status
+    } else if(what=="gsea2"){
+      getqs<-function(query,order=TRUE,reportNames=TRUE,ntop=NULL){
+        if(is.data.frame(query) && nrow(query)>0 ){
+          if(is.null(ntop)){
+            query<-query[query[,"Adjusted.Pvalue"] <= object@para$gsea2$pValueCutoff,,drop=FALSE]
+          } else {
+            if(ntop>nrow(query)|| ntop<0)ntop=nrow(query)
+            if(nrow(query)>1){
+              idx<-sort.list(query[,"Pvalue"]) 
+              query<-query[idx[1:ntop],,drop=FALSE]
+            }
+          }
+          if(order){
+            if(nrow(query)>1) query<-query[order(query[,"Observed.Score"]),,drop=FALSE]
+          }
+          if(reportNames){
+            idx<-match(query[,1],object@transcriptionFactors)
+            query[,1]<-names(object@transcriptionFactors)[idx]
+          }
+        }
+        query
+      }
+      query<-list()
+      if(is.null(ntop)){
+        tp<-rownames(getqs(object@results$GSEA2.results$differential))
+        tp<-intersect(tp,rownames(getqs(object@results$GSEA2.results$positive)))
+        tp<-intersect(tp,rownames(getqs(object@results$GSEA2.results$negative)))
+        dft<-getqs(object@results$GSEA2.results$differential,order,reportNames)
+        dft<-dft[rownames(dft)%in%tp,]
+        query$differential<-dft
+        query$positive<-object@results$GSEA2.results$positive[rownames(dft),,drop=FALSE]
+        query$negative<-object@results$GSEA2.results$negative[rownames(dft),,drop=FALSE]
+      } else {
+        query$differential<-getqs(object@results$GSEA2.results$differential,order,reportNames,ntop)
+        query$positive<-object@results$GSEA2.results$positive[rownames(query$differential),,drop=FALSE]
+        query$negative<-object@results$GSEA2.results$negative[rownames(query$differential),,drop=FALSE]
+      }
     }
+    
     return(query)
   }
 )
+
 ##------------------------------------------------------------------------------
 ##get graph from TNI 
 setMethod(
   "tni.graph",
   "TNI",
-  function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", amapCutoff=NULL){
+  function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", 
+           amapCutoff=NULL, mask=FALSE, ntop=NULL){
     # chech igraph compatibility
     b1<-"package:igraph0" %in% search()
     b2<- "igraph0" %in%  loadedNamespaces()
@@ -384,13 +453,24 @@ setMethod(
     }
     if(object@status["Preprocess"]!="[x]")stop("NOTE: input data need preprocessing!")
     tnai.checks(name="tni.gtype",para=gtype)
-    if(gtype=="mmap"){ #get modulatory maps
+    if(gtype=="mmap" || gtype=="mmapDetailed"){ #get modulatory maps
       ##-----check input arguments
       if(object@status["Conditional"]!="[x]")stop("NOTE: input need conditional analysis!")
       #get tfs and modulators
       cdt<-tni.get(object,what="cdt")
+      if(length(cdt)==0)stop("NOTE: input conditional analysis is empty")
+      #cdt<-tni.get(object,what="cdt",ntop=5)
       testedtfs<-names(cdt)
       testedtfs<-object@transcriptionFactors[object@transcriptionFactors%in%testedtfs]
+      if(!is.null(tfs)){
+        tfs<-as.character(tfs)
+        idx<-which(names(object@transcriptionFactors)%in%tfs | object@transcriptionFactors%in%tfs)
+        tfs<-object@transcriptionFactors[idx]
+        testedtfs<-testedtfs[testedtfs%in%tfs]
+        if(length(testedtfs)==0){
+          stop("NOTE: input 'tfs' contains no useful data!\n")
+        }
+      }
       modulators<-sapply(testedtfs,function(tf){
         rownames(cdt[[tf]])
       })
@@ -408,77 +488,31 @@ setMethod(
       #get adjmt
       tnet<-tnet[unique(c(testedtfs,setdiff(modulators,testedtfs))),testedtfs,drop=FALSE]
       mnet<-tnet;mnet[,]=0
-      sapply(colnames(mnet),function(i){
+      junk<-sapply(colnames(mnet),function(i){
         tp<-cdt[[i]]
         mnet[rownames(tp),i]<<-tp$Mode
         NULL
       })
-      #get graph
-      g<-tni.mmap(mnet,tnet,othertfs)
-      #add annotation
-      if(.hasSlot(object, "annotation")){
-        if(nrow(object@annotation)>0)g<-att.mapv(g=g,dat=object@annotation,refcol=1)
-      }
-      #set names if available
-      if(!is.null(V(g)$SYMBOL)){
-        g<-att.setv(g=g, from="SYMBOL", to='nodeAlias')
+      pvnet<-tnet;pvnet[,]=1
+      junk<-sapply(colnames(mnet),function(i){
+        tp<-cdt[[i]]
+        pvnet[rownames(tp),i]<<-tp$PvKS
+        NULL
+      })
+      #---
+      if(gtype=="mmapDetailed"){
+        #---experimental!!!
+        #return a lista with:
+        #1st level: a TF
+        #2nd level: all MDs of a TF
+        #3rd level: a graph
+        gList<-tni.mmap.detailed(object,mnet,testedtfs,ntop=ntop)
+        return(gList)
       } else {
-        V(g)$nodeAlias<-V(g)$name
-      }
-      #map tested tfs and modulators
-      V(g)$tfs<-as.numeric(V(g)$name%in%testedtfs)
-      V(g)$modulators<-as.numeric(V(g)$name%in%modulators)
-      #get regulon size (downstream targets)
-      rsize<-tni.get(object,what="regulons")
-      rsize<-sapply(rsize,length)
-      rsize<-rsize[names(rsize)%in%V(g)$name]
-      rsize<-rsize[names(rsize)%in%testedtfs]
-      idx<-match(names(rsize),V(g)$name)
-      V(g)$regulonSize<-NA
-      V(g)$regulonSize[idx]<-rsize
-      #test if node size can be represented by quantiles
-      nquant=5
-      nq<-length(unique(quantile(V(g)$regulonSize,na.rm=TRUE)))
-      if(nq<3)nquant=NULL
-      g<-att.setv(g=g, from="regulonSize", to='nodeSize',xlim = c(35, 70, 15),nquant=nquant,title="Downstream targets (n)")
-      #set node attr
-      V(g)$nodeFontSize=15
-      V(g)$nodeLineWidth<-1.5
-      V(g)$nodeColor<-"grey"
-      V(g)$nodeLineColor<-"grey"
-      V(g)$nodeFontSize[V(g)$tfs==1]=25
-      #set node shape and legend
-      g<-att.setv(g=g, from="tfs", to='nodeShape',shapes=c("DIAMOND","ELLIPSE"),title="")
-      g$legNodeShape$legend<-c("Modulator","TF")
-      if(ecount(g)>0){
-        #set edge attr
-        E(g)$edgeWidth<-1.5
-        #c("#7DA7FF","#63DB93","#FE7276")
-        g<-att.sete(g=g, from="modeOfAction", to='edgeColor',cols=c("#96D1FF","grey80","#FF8E91"), 
-                    title="ModeOfAction",categvec=-1:1)
-        g$legEdgeColor$legend<-c("Down","NA","Up")
-        #map upstring edges
-        dg<-degree(g)
-        el<-get.edgelist(g,names=FALSE)
-        ew<-sapply(1:nrow(el),function(i){
-          min(dg[el[i,1]],dg[el[i,2]])
-        })
-        E(g)$terminalEdge<-0
-        E(g)$terminalEdge[ew==1]<-1
-        #map modeOfAction to node attribute (compute the median mode of action)
-        el<-data.frame(get.edgelist(g),E(g)$modeOfAction,stringsAsFactors=FALSE)
-        nid<-V(g)$name
-        mdmode<-sapply(nid,function(id){
-          idx<-el[,2]==id
-          median(el[idx,3])
-        })
-        mdmode[V(g)$tfs==1]=NA
-        V(g)$medianModeOfAction<-as.integer(mdmode)
-        #assign mode to targets
-        g<-att.setv(g=g, from="medianModeOfAction", to='nodeColor',cols=c("#96D1FF","grey80","#FF8E91"), 
-                    title="ModeOfAction",categvec=-1:1,pal=1,na.col="grey80")
-        V(g)$nodeLineColor<-V(g)$nodeColor
-        g<-remove.graph.attribute(g,"legNodeColor")
+        #get mmap
+        #tnet[,]<-0
+        g<-tni.mmap(object,mnet,tnet,pvnet,othertfs,testedtfs,modulators)
+        return(g) 
       }
     } else {
       ##-----check input arguments
@@ -488,6 +522,7 @@ setMethod(
       tnai.checks(name="minRegulonSize",para=minRegulonSize)
       tnai.checks(name="amapFilter",para=amapFilter)
       tnai.checks(name="amapCutoff",para=amapCutoff)
+      tnai.checks(name="mask",para=mask)
       ##-----get tnet
       if(tnet=="ref"){
         tnet<-object@results$tn.ref
@@ -506,7 +541,7 @@ setMethod(
         }
         tfs<-object@transcriptionFactors[idx]
       }
-      tnet<-tnet[,tfs]
+      tnet<-tnet[,tfs,drop=FALSE]
       if(gtype=="rmap"){ #get regulatory maps
         g<-tni.rmap(tnet)
         #add annotation
@@ -556,23 +591,34 @@ setMethod(
       } else { #get association maps
         adjmt<-tni.amap(tnet)
         #-------------------filter J.C.
+        if(mask){
+          #set a mask to keep at least the best weighted edge
+          mask<-sapply(1:ncol(adjmt),function(i){
+            tp<-adjmt[,i]
+            tp==max(tp)
+          })
+          nc<-ncol(mask);nr<-nrow(mask)
+          mask<-mask+mask[rev(nr:1),rev(nc:1)]>0
+        } else {
+          mask<-array(0,dim=dim(adjmt))
+        }
         if(amapFilter=="phyper"){
           #filter based phyper distribution (remove non-significant overlaps)
           if(is.null(amapCutoff))amapCutoff=0.01
           pvalue<-amapCutoff
           pmat<-tni.phyper(tnet)
-          adjmt[pmat>pvalue]=0
+          adjmt[pmat>pvalue & mask==0]=0
         } else if(amapFilter=="quantile"){
           #filter based on quantile distribution
           if(is.null(amapCutoff))amapCutoff=0.75
           jc<-as.integer(amapCutoff*100)+1
           tp<-as.numeric(adjmt)
           jc<-quantile(tp[tp>0],probs = seq(0, 1, 0.01), na.rm=TRUE)[jc]
-          adjmt[adjmt<jc]=0
+          adjmt[adjmt<jc & mask==0]=0
         } else {
           #custom filter
           if(is.null(amapCutoff))amapCutoff=0
-          adjmt[adjmt<amapCutoff]=0
+          adjmt[adjmt<amapCutoff & mask==0]=0
         }
         #-------------------
         g<-igraph::graph.adjacency(adjmt, diag=FALSE, mode="undirected", weighted=TRUE)
@@ -584,8 +630,8 @@ setMethod(
         V(g)$nodeAlias<-names(tfs)[idx]
         V(g)$degree<-sz[idx]
         #---set main attribs
-        g<-att.sete(g=g, from="weight", to='edgeWidth', nquant=10, xlim=c(1,15,1))
-        g<-att.setv(g=g, from="degree", to='nodeSize', xlim=c(20,100,1), nquant=10, roundleg=1)
+        if(ecount(g)>0)g<-att.sete(g=g, from="weight", to='edgeWidth', nquant=5, xlim=c(1,15,1),roundleg=2)
+        g<-att.setv(g=g, from="degree", to='nodeSize', xlim=c(20,100,1), nquant=5, roundleg=1)
         V(g)$nodeFontSize<-20
       }
     }
@@ -598,9 +644,8 @@ setMethod(
   "tni.conditional",
   "TNI",
   function(object, modulators=NULL, tfs=NULL, sampling=35, pValueCutoff=0.01, 
-           pAdjustMethod="bonferroni", statFilter="phyper", statUniverse="all", 
-           minRegulonSize=15, minIntersectSize=5, miThreshold=NULL,
-           parChunks=10, verbose=TRUE){
+           pAdjustMethod="bonferroni", minRegulonSize=15, minIntersectSize=5, 
+           miThreshold="md", prob=0.95, pwtransform=FALSE, verbose=TRUE){
     ##-----check input arguments
     if(object@status["DPI.filter"]!="[x]")stop("NOTE: input data need dpi analysis!")
     tnai.checks(name="modulators",para=modulators)
@@ -608,34 +653,31 @@ setMethod(
     tnai.checks(name="sampling",para=sampling)
     tnai.checks(name="pValueCutoff",para=pValueCutoff)
     tnai.checks(name="pAdjustMethod",para=pAdjustMethod)
-    tnai.checks(name="statFilter",para=statFilter)
-    tnai.checks(name="statUniverse",para=statUniverse)
     tnai.checks(name="minRegulonSize",para=minRegulonSize)
     tnai.checks(name="minIntersectSize",para=minIntersectSize)
+    tnai.checks(name="pwtransform",para=pwtransform)
     tnai.checks(name="miThreshold",para=miThreshold)
-    tnai.checks(name="parChunks",para=parChunks)
+    tnai.checks(name="prob",para=prob)
     tnai.checks(name="verbose",para=verbose)
     ##-----par info
     object@para$cdt<-list(sampling=sampling, pValueCutoff=pValueCutoff,
-                          pAdjustMethod=pAdjustMethod, statFilter=statFilter,
-                          statUniverse=statUniverse,
-                          minRegulonSize=minRegulonSize,
-                          minIntersectSize=minIntersectSize,
-                          miThreshold=NA)
+                          pAdjustMethod=pAdjustMethod, minRegulonSize=minRegulonSize, 
+                          minIntersectSize=minIntersectSize, miThreshold=NA, prob=prob,
+                          pwtransform=pwtransform)
     ##-----summary info
     cdt<-unlist(object@para$cdt)
     object@summary$para$cdt<-matrix(cdt,nrow=1,ncol=8)
     rownames(object@summary$para$cdt)<-"Parameter"
     colnames(object@summary$para$cdt)<-names(cdt)
 
-    if(verbose)cat("-Preprocessing for input data ...\n")
+    if(verbose)cat("-Preprocessing for input data...\n")
     ##-----make sure all 'tfs' are valid
     if(is.null(tfs)){
       tfs<-object@transcriptionFactors
     } else {
-      if(verbose)cat("--Checking TFs in the dataset ...\n")
+      if(verbose)cat("--Checking TFs in the dataset...\n")
       tfs<-as.character(tfs)
-      idx<-which(!tfs%in%object@transcriptionFactors)
+      idx<-which(!tfs%in%object@transcriptionFactors & !tfs%in%names(object@transcriptionFactors))
       if(length(idx)>0){
         message(paste("Note: input 'tfs' contains", length(idx)," element(s) not listed in the network!\n"))
       }
@@ -649,7 +691,7 @@ setMethod(
     if(is.null(modulators)){
       modulators<-object@transcriptionFactors
     } else {
-      if(verbose)cat("--Checking modulators in the dataset ...\n")
+      if(verbose)cat("--Checking modulators in the dataset...\n")
       if(!is.character(modulators)){
         nm<-names(modulators)
         modulators<-as.character(modulators)
@@ -681,7 +723,7 @@ setMethod(
           }
         }
       }
-      if(length(modulators)==1)stop("NOTE: incorrect number of dimensions: range constraint step requires >2 valid modulators!")
+      if(length(modulators)==0)stop("NOTE: incorrect number of dimensions: range constraint step requires 1 or more valid modulators!")
       #final check: remove any empty space or NA from md names!!!
       mdnames<-names(modulators)
       idx<-mdnames==""|mdnames=="NA"
@@ -701,7 +743,7 @@ setMethod(
     #     }
     
     ##-----get TF-targets from tnet
-    if(verbose)cat("--Extracting TF-targets ...\n")
+    if(verbose)cat("--Extracting TF-targets...\n")
     tfTargets<-list()
     tfAllTargets<-list()
     for(tf in tfs){
@@ -717,8 +759,9 @@ setMethod(
     tfs<-tfs[tfs%in%names(gs.size[gs.size>minRegulonSize])]
     tfTargets<-tfTargets[tfs]
     tfAllTargets<-tfAllTargets[tfs]
+    tnetAllTargets<-rownames(object@results$tn.dpi)[rowSums(object@results$tn.dpi!=0)>0]
     ##-----Checking independence of modulators and TFs
-    if(verbose)cat("--Applying modulator independence constraint ...\n")
+    if(verbose)cat("--Applying modulator independence constraint...\n")
     IConstraintList<-list()
     for(tf in tfs){
       idx<-object@results$tn.ref[,tf]!=0
@@ -729,10 +772,13 @@ setMethod(
     idxLow<-1:spsz
     idxHigh<-(ncol(object@gexp)-spsz+1):ncol(object@gexp)
     ##-----start filtering
-    if(verbose)cat("--Applying modulator range constraint ...\n")
+    if(verbose)cat("--Applying modulator range constraint...\n")
     gxtemp<-object@gexp
     gxtemp[is.na(gxtemp)]<-median(gxtemp,na.rm=TRUE)
     gxtemp<-t(apply(gxtemp[modulators,,drop=FALSE],1,sort))[,c(idxLow,idxHigh),drop=FALSE]
+    if(length(modulators)==1){
+      gxtemp<-rbind(gxtemp,gxtemp)
+    }
     ##--run limma on both tails to filter-out modulators
     t <- factor(c(rep("low",spsz),rep("high",spsz)))
     design <- model.matrix(~0+t)
@@ -743,115 +789,206 @@ setMethod(
     res.fit<-unclass(decideTests(ct.fit, adjust.method=object@para$cdt$pAdjustMethod, p.value=object@para$cdt$pValueCutoff))
     RConstraintList<-rownames(res.fit)[res.fit<=0]
     ##--get samples (sorted index) for each pre-selected modulator
-    if(verbose)cat("--Selecting subsamples ...\n")
+    if(verbose)cat("--Selecting subsamples...\n")
     gxtemp<-object@gexp
     gxtemp[is.na(gxtemp)]<-median(gxtemp,na.rm=TRUE)    
-    idx<-t(apply(gxtemp[modulators,],1,sort.list))
-    idxLow<-idx[,idxLow]
-    idxHigh<-idx[,idxHigh]
-    ##-----estimate mutual information threshold
-    if(is.null(miThreshold)){
-      if(verbose)cat("\n")
-      mmark<-tni.conditional.threshold(object, ntfs=length(tfs), nsamples=spsz, parChunks=parChunks, verbose=verbose)
-      if(verbose)cat("\n")
-    } else {
-      #0.2765982/0.03652542/0.04254874
-      mmark<-miThreshold
+    idx<-t(apply(gxtemp[modulators,,drop=FALSE],1,sort.list))
+    idxLow<-idx[,idxLow,drop=FALSE]
+    idxHigh<-idx[,idxHigh,drop=FALSE]
+    #----power transformation
+    if(pwtransform){
+      if(verbose)cat("--Applying power transformation...\n")
+      junk<-sapply(tfs,function(tf){
+        x<-gxtemp[tf,]
+        if(shapiro.test(x)$p.value<0.05){
+          if(any(x<=0))x<-x+1-min(x)
+          l<-coef(powerTransform(x),round=TRUE)
+          x<-bcPower(x,l, jacobian.adjusted=TRUE)
+          gxtemp[tf,]<<-x
+        }
+        NULL
+      }) 
     }
-    ##-----update para/summary
-    object@para$cdt$miThreshold<-mmark
-    object@para$cdt$miThreshold<-mmark
-    object@summary$para$cdt[,"miThreshold"]<-mmark
+    ##-----estimate mutual information threshold
+    if(is.character(miThreshold)){
+      if(verbose)cat("\n")
+      if(verbose)cat("-Estimating mutual information threshold...\n")
+      if(miThreshold=="md.tf"){
+        mimark<-miThresholdMdTf(gxtemp,tfs=tfs,nsamples=spsz,prob=prob,nPermutations=object@para$perm$nPermutations, 
+                                estimator=object@para$perm$estimator,verbose=verbose)
+      } else if(miThreshold=="md.tf.tar"){
+        mimark<-miThresholdMdTfTar(gxtemp,tfs=tfs,nsamples=spsz,prob=prob,nPermutations=object@para$perm$nPermutations, 
+                                   estimator=object@para$perm$estimator,verbose=verbose)
+      } else {
+        mimark<-miThresholdMd(gxtemp,nsamples=spsz,prob=prob,nPermutations=object@para$perm$nPermutations, 
+                              estimator=object@para$perm$estimator,verbose=verbose)
+      }
+    } else {
+      mimark<-miThreshold
+      if(is.matrix(miThreshold)){
+        miThreshold<-"md.tf.tar"
+        cn<-colnames(mimark)
+        rn<-rownames(mimark)
+        if(is.null(rn) || is.null(cn)){
+          stop("custom 'miThreshold' matrix should be named, matching TF and target ids!")
+        } 
+        if( all(tfs%in%cn) ){
+          mimark<-mimark[,tfs]
+        } else if(all(names(tfs)%in%cn)){
+          mimark<-mimark[,names(tfs)]
+        } else {
+          stop("colnames in custom 'miThreshold' matrix should match TF ids!")
+        }
+        if( all(rownames(gxtemp)%in%rn) ){
+          mimark<-mimark[rownames(gxtemp),]
+        } else {
+          stop("rownames in custom 'miThreshold' matrix should match target ids!")
+        }
+      } else if(length(miThreshold)>1){
+        miThreshold<-"md.tf"
+        if(is.null(names(mimark))){
+          stop("custom 'miThreshold' vector should be named, matching TF ids!")
+        } else if(all(tfs%in%names(mimark))){
+          mimark<-mimark[tfs]
+        } else if( all(names(tfs)%in%names(mimark)) ){
+          mimark<-mimark[names(tfs)]
+        } else {
+          stop("names in custom 'miThreshold' vector should match TF ids!")
+        }
+      } else {
+        miThreshold<-"md"
+      }
+      object@summary$para$cdt[,"prob"]<-"custom"
+      object@para$cdt$prob<-NA
+    }
+    ##-----update miThreshold
+    object@summary$para$cdt[,"miThreshold"]<-miThreshold
+    object@para$cdt$miThreshold<-mimark
     ##-----start conditional mutual information analysis
     if(verbose)cat("\n")
-    if(verbose)cat("-Performing conditional mutual information analysis ...\n")
+    if(verbose)cat("-Performing conditional mutual information analysis...\n")
     if(verbose)cat("--For", length(tfs), "tfs and" , length(modulators), "candidate modulators \n")
     #set data object to save results
     reseffect<-lapply(tfTargets,function(tar){
       data.frame(tagets=tar,stringsAsFactors=FALSE)
     })
     rescount<-lapply(tfTargets,function(tar){
-      res<-data.frame(NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,stringsAsFactors=FALSE)
+      res<-data.frame(NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,stringsAsFactors=FALSE)
       colnames(res)<-c("Modulator","IConstraint","RConstraint","TF","UniverseSize","EffectSize","RegulonSize","Expected",
-                       "Observed","Negative","Positive","Mode","Pvalue","AdjustedPvalue")
+                       "Observed","Negative","Positive","Mode","OR(+/-)","PvFET","AdjPvFET","KS","PvKS","AdjPvKS")
       res
     })
-    #run analysis
-    minExpectedSize<-ifelse(statFilter=="phyper",1,5)
+    
+    #supplementary information to be added: get simple correlation between tfs and modulator candidates
+    #rnet<-tni.tfmdcor(object@gexp,tfs, modulators)
+    #rnet<-round(rnet,2)
+    
     if(verbose) pb <- txtProgressBar(style=3)
     for(i in 1:length(modulators)){
       md<-modulators[i]
       #get sample ordering
       lw<-idxLow[md,]
       hg<-idxHigh[md,]
-      #compute conditional on both tails
+      #compute mi on both tails
       milow<-tni.pmim(gxtemp[,lw],tfs,estimator=object@para$perm$estimator)
-      mihigh<-tni.pmim(gxtemp[,hg],tfs,estimator=object@para$perm$estimator)
-      #get delta mi
+      mihigh<-tni.pmim(gxtemp[,hg],tfs,estimator=object@para$perm$estimator) 
+      #get mi delta
       miDelta<-mihigh-milow
-      #remove associations below mi threshold
-      milow[milow<=mmark]=0
-      mihigh[mihigh<=mmark]=0
-      #identify significant negative and positive modulations
-      neg <- milow > mmark & miDelta < -mmark & mihigh <= mmark
-      pos <- mihigh > mmark & miDelta > mmark & milow <= mmark
-      #remove modulation below mi threshold
-      miDelta[!neg & !pos]=0 
-      #...used to compute the sample space and expected values!
-      mTargets<-milow+mihigh
-      mTargets[mTargets>0]=1
+      #identify modulations above delta mi threshold
+      if(miThreshold=="md.tf"){
+        sigd<-t(t(abs(miDelta))>mimark) 
+      } else {
+        sigd<-abs(miDelta)>mimark
+      }
+      miDelta<-miDelta/(mihigh+milow)
+      miDelta[!sigd]<-0
       #get final results
       sapply(tfs,function(tf){
-        dtmtx<-miDelta[,tf]
-        mtmtx<-mTargets[,tf]
+        dtvec<-miDelta[,tf]
         tftar<-tfTargets[[tf]]
         tfalltar<-tfAllTargets[[tf]]
         #---get SZs
-        if(statUniverse=="all"){
-          #todos modulaveis
-          EffectSZ<-sum(mtmtx!=0)
-          #todos testados
-          UniSZ<-length(mtmtx)
-        } else {
-          #todos modulaveis na tnet
-          EffectSZ<-sum(mtmtx[tfalltar]!=0)
-          #todos testados na tnet
-          UniSZ<-sum(rowSums(object@results$tn.dpi!=0)>0)
-        }
+        #todos modulados no dataset
+        #EffectSZ<-sum(dtvec!=0)
+        #todos testados no dataset
+        #UniSZ<-length(dtvec)
+        #todos modulados na tnet
+        EffectSZ<-sum(dtvec[tnetAllTargets]!=0)
+        #todos testados na tnet
+        UniSZ<-length(tnetAllTargets)
+        #demais
         RegSZ<-length(tftar)
         ExpOV<-(EffectSZ*RegSZ)/UniSZ
-        ObsOV<-sum(dtmtx[tftar]!=0)
-        if((ObsOV/RegSZ*100)>=minIntersectSize && ExpOV>=minExpectedSize){
+        ObsOV<-sum(dtvec[tftar]!=0)
+        if( (ObsOV/RegSZ*100)>=minIntersectSize && ExpOV>=1 ){
           #apply exclusion list (independence/range constraint)
           iconst<-ifelse(md%in%IConstraintList[[tf]],1,0)
           rconst<-ifelse(md%in%RConstraintList,1,0)
           if(iconst || rconst){
             EffectSZ<-NA;ExpOV<-NA;ObsOV<-NA;ObsPos<-NA
-            ObsNeg<-NA;Mode<-NA;pvalue<-NA
+            ObsNeg<-NA;Mode<-NA;pvfet<-NA
+            dks<-NA;pvks<-NA;ORPN<-NA
           } else {
             #---get mode of actions
-            ObsPos<-sum(dtmtx[tftar]>0)
-            ObsNeg<-sum(dtmtx[tftar]<0)
+            ObsPos<-sum(dtvec[tftar]>0)
+            ObsNeg<-sum(dtvec[tftar]<0)
             Mode<-if(ObsNeg>ObsPos) -1 else if(ObsNeg<ObsPos) 1 else 0
             #---resolve obs
             Obs<-if(Mode==-1) abs(ObsNeg) else if(Mode==1) ObsPos else ObsOV
-            if(statFilter=="phyper"){
-              #---run FET with phyper (obs-1)
-              pvalue <- phyper(Obs-1, RegSZ, UniSZ-RegSZ, EffectSZ, lower.tail=FALSE)
+            #---run fet with phyper (obs-1)
+            pvfet <- phyper(Obs-1, RegSZ, UniSZ-RegSZ, EffectSZ, lower.tail=FALSE)
+            #---run ks test
+            #pheno
+            pheno<-abs(object@results$tn.ref[,tf])
+            pheno<-pheno[pheno!=0]
+            #hits
+            hits<-dtvec[tftar]
+            hits<-hits[hits!=0]
+            hits<-which(names(pheno)%in%names(hits))
+            #run ks stat
+            if(length(hits)>length(pheno)/2){
+              dks<-1
+              pvks<-0
             } else {
-              #---chisq test
-              if(Obs>ExpOV){
-                yt <- min(0.5,Obs-ExpOV)
-                chist<-((Obs-ExpOV)-yt)^2/ExpOV
+              kst<-ks.test(pheno[-hits],pheno[hits],alternative="greater")
+              dks<-kst$statistic
+              pvks<-kst$p.value
+            }
+            #count (+) and (-) tf-targets in the modulated set
+            #express by the ratio of (+) or (-) targets, espectively
+            if(Mode>=0){
+              mdtf.tar<-dtvec[tftar]
+              mdtf.tar<-names(mdtf.tar)[mdtf.tar>0]
+              tf.tar<-object@results$tn.dpi[tftar,tf]
+              mdtf.tar<-tf.tar[mdtf.tar]
+              p1<-sum(mdtf.tar>0)/sum(tf.tar>0)
+              p2<-sum(mdtf.tar<0)/sum(tf.tar<0)
+              bl<-!is.nan(p1) && !is.nan(p2)
+              if(bl && p1>0 && p2>0){
+                ORPN<-round((p1/(1-p1))/(p2/(1-p2)),2)
+                #ORPN<-round(p1/p2,2)
               } else {
-                chist<-0
+                ORPN<-NA
               }
-              pvalue<-pchisq(chist, df=1, lower.tail=FALSE)
+            } else {
+              mdtf.tar<-dtvec[tftar]
+              mdtf.tar<-names(mdtf.tar)[mdtf.tar<0]
+              tf.tar<-object@results$tn.dpi[tftar,tf]
+              mdtf.tar<-tf.tar[mdtf.tar]
+              p1<-sum(mdtf.tar>0)/sum(tf.tar>0)
+              p2<-sum(mdtf.tar<0)/sum(tf.tar<0)
+              bl<-!is.nan(p1) && !is.nan(p2)
+              if(bl && p1>0 && p2>0){
+                ORPN<-round((p1/(1-p1))/(p2/(1-p2)),2)
+                #ORPN<-round(p1/p2,2)
+              } else {
+                ORPN<-NA
+              }
             }
           }
           #---add results to a list
-          reseffect[[tf]][[md]]<<-dtmtx[tftar]
-          rescount[[tf]][md,]<<-c(NA,NA,NA,NA,UniSZ,EffectSZ,RegSZ,ExpOV,ObsOV,ObsNeg,ObsPos,Mode,pvalue,NA)
+          reseffect[[tf]][[md]]<<-dtvec[tftar]
+          rescount[[tf]][md,]<<-c(NA,NA,NA,NA,UniSZ,EffectSZ,RegSZ,ExpOV,ObsOV,ObsNeg,ObsPos,Mode,ORPN,pvfet,NA,dks,pvks,NA)
           rescount[[tf]][md,c(1,2,3,4)]<<-c(md,iconst,rconst,tf)
         }
         NULL
@@ -863,17 +1000,24 @@ setMethod(
     sapply(names(rescount),function(tf){
       results<-rescount[[tf]][-1,,drop=FALSE]
       if(nrow(results)>0){
-        results[,"AdjustedPvalue"] <- p.adjust(results[,"Pvalue"], method=pAdjustMethod)
+        #results[,"AdjPvFET"] <- p.adjust(results[,"PvFET"], method=pAdjustMethod)
+        #results[,"AdjPvKS"] <- p.adjust(results[,"PvKS"], method=pAdjustMethod)
+        results[,"PvFET"]<-signif(results[,"PvFET"],digits=4)
+        results[,"AdjPvFET"]<-signif(results[,"AdjPvFET"],digits=2)
+        results[,"PvKS"]<-signif(results[,"PvKS"],digits=4)
+        results[,"AdjPvKS"]<-signif(results[,"AdjPvKS"],digits=2)
         results[,"Expected"]<-round(results[,"Expected"],2)
-        results[,"Pvalue"]<-signif(results[,"Pvalue"], digits=4)
-        results[,"AdjustedPvalue"]<-signif(results[,"AdjustedPvalue"], digits=4)
-        results<-results[sort.list(results[,"Observed"], decreasing=TRUE),,drop=FALSE]
+        results[,"KS"]<-round(results[,"KS"],2)
       }
       rescount[[tf]]<<-results
       NULL
     })
+    ##global p.adjustment
+    rescount<-p.adjust.cdt(cdt=rescount,pAdjustMethod=pAdjustMethod, p.name="PvKS",adjp.name="AdjPvKS",sort.name="PvKS")
+    rescount<-p.adjust.cdt(cdt=rescount,pAdjustMethod=pAdjustMethod, p.name="PvFET",adjp.name="AdjPvFET")
+    rescount<-sortblock.cdt(cdt=rescount)
     ##update summary and return results
-    object@results$conditional$count<-rescount
+    object@results$conditional$count<-rescount 
     object@results$conditional$effect<-reseffect
     object@status["Conditional"] <- "[x]"
     if(verbose)cat("-Conditional analysis complete! \n\n")
@@ -887,9 +1031,78 @@ setMethod(
   "show",
   "TNI",
   function(object) {
-    cat("A TNI (transcriptional network inference) object:\n")
+    cat("A TNI (Transcriptional Network Inference) object:\n")
     message("--status:")
     print(tni.get(object, what=c("status")), quote=FALSE)
   }
 )
 
+##------------------------------------------------------------------------------
+##------------------------------------------------------------------------------
+##-------------------------TNI INTERNAL FUNCTIONS-------------------------------
+##------------------------------------------------------------------------------
+##------------------------------------------------------------------------------
+
+##------------------------------------------------------------------------------
+##This function returns alternative annotations for get.tni/get.tna methods
+translateQuery<-function(query,idkey,object,annottype,reportNames){
+  annotation<-object@annotation
+  if(is.null(query))return(query)
+  cnames<-colnames(annotation)
+  if(!idkey%in%cnames){
+    tp1<-"'NOTE: <idkey> not available! please use one of: "
+    tp2<-paste(cnames,collapse=", ")
+    stop(tp1,tp2,call.=FALSE)
+  }
+  # get TF's lab
+  tfs<-object@transcriptionFactors
+  if(!reportNames){
+    idx<-tfs%in%rownames(annotation)
+    names(tfs)[idx]<-annotation[tfs[idx],idkey]
+  }
+  if(annottype=="matrixAndNames"){
+    idx<-colnames(query)%in%tfs
+    colnames(query)[idx]<-names(tfs)[idx]
+    idx<-rownames(query)%in%rownames(annotation)
+    rownames(query)[idx]<-annotation[rownames(query)[idx],idkey]
+  } else if(annottype=="listAndNames"){
+    idx<-names(query)%in%tfs
+    names(query)[idx]<-names(tfs)[idx]
+    query<-lapply(query,function(qry){
+      idx<-names(qry)%in%rownames(annotation)
+      names(qry)[idx]<-annotation[names(qry)[idx],idkey]
+      qry
+    })
+  } else if(annottype=="listAndContent"){
+    idx<-names(query)%in%tfs
+    names(query)[idx]<-names(tfs)[idx]
+    query<-lapply(query,function(qry){
+      nms<-names(qry)
+      idx<-qry%in%rownames(annotation)
+      qry[idx]<-annotation[qry[idx],idkey]
+      names(qry)<-nms
+      qry<-qry[!is.na(qry)]
+      unique(qry)
+    })
+  } else if(annottype=="vecAndContent"){
+    nms<-names(query)
+    idx<-query%in%rownames(annotation)
+    query[idx]<-annotation[query[idx],idkey]
+    names(query)<-nms
+    query<-unique(query[!is.na(query)])
+  } else if(annottype=="vecAndNames"){
+    idx<-names(query)%in%rownames(annotation)
+    names(query)[idx]<-annotation[names(query)[idx],idkey]
+  }
+  return(query)
+}
+
+
+# #---chisq test
+# if(Obs>ExpOV){
+#   yt <- min(0.5,Obs-ExpOV)
+#   chist<-((Obs-ExpOV)-yt)^2/ExpOV
+# } else {
+#   chist<-0
+# }
+# pvalue<-pchisq(chist, df=1, lower.tail=FALSE)

@@ -50,7 +50,7 @@ Objects can be created by calls of the form \code{new("TNI", gexp, transcription
     \code{para}, and \code{results}.    
     }
     \item{\code{status}:}{Object of class \code{"character"},
-    a single character value specifying the status of the TNI object 
+    a character value specifying the status of the TNI object 
     based on the available methods.
     }
   }

@@ -8,3 +8,5 @@ citEntry(entry = "Article",
   note = "RTN: reconstruction of transcriptional networks and analysis of master regulators. R package, 2013.",
   textVersion = "Castro MAA, Wang X, Fletcher MNC, Markowetz F, Meyer KB. RTN: reconstruction of transcriptional networks and analysis of master regulators. R package, 2013. url:http://bioconductor.org/packages/devel/bioc/html/RTN.html"
 )
+
+

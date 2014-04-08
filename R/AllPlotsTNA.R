@@ -10,7 +10,7 @@ tna.plot.gsea1<-function(object, regulon.order="size", ntop=NULL, tfs=NULL, file
                         xlab="Position in the ranked list of genes", labPheno="tna_test",
                         alpha=0.5, sparsity=10, splitcor=FALSE, autoformat=TRUE, ...) {
   #checks
-  if(object@status$analysis["GSEA1"]!="[x]"){
+  if(class(object)!="TNA" || object@status$analysis["GSEA1"]!="[x]"){
     cat("-invalid 'GSEA1' status! \n")
     stop("NOTE: gsea plot requires results from 'tna.gsea1' analysis!")
   }
@@ -50,9 +50,8 @@ tna.plot.gsea1<-function(object, regulon.order="size", ntop=NULL, tfs=NULL, file
   }
   ##-----get gene sets used in the current gsea1 analysis
   if(object@para$gsea1$tnet=="cdt"){
-    rgcs<-lapply(object@listOfModulators,function(reg){
-      reg
-    })
+    rgcs<-object@listOfModulators
+    if(ylabPanels[2]=="Regulon")ylabPanels[2]<-"Modulators"
   } else if(object@para$gsea1$tnet=="ref"){
     rgcs<-tna.get(object,what="refregulons.and.mode")
   } else {
@@ -87,7 +86,7 @@ tna.plot.gsea2<-function(object, regulon.order="size", ntop=NULL, tfs=NULL, file
                         xlab="Position in the ranked list of genes", labPheno="tna_test",
                         alpha=1.0, sparsity=10, autoformat=TRUE, ...) {
   #checks
-  if(object@status$analysis["GSEA2"]!="[x]"){
+  if(class(object)!="TNA" || object@status$analysis["GSEA2"]!="[x]"){
     cat("-invalid 'GSEA2' status! \n")
     stop("NOTE: gsea plot requires results from 'tna.gsea2' analysis!")
   }
@@ -105,7 +104,7 @@ tna.plot.gsea2<-function(object, regulon.order="size", ntop=NULL, tfs=NULL, file
   tnai.checks(name="alpha",alpha)
   tnai.checks(name="autoformat",autoformat)
   if(!is.null(tfs)){
-    resgsea<-tna.get(object, what="gsea2", reportNames=TRUE)
+    resgsea<-tna.get(object, what="gsea2", ntop=-1, reportNames=TRUE)
     idx<-(rownames(resgsea$differential)%in%tfs+resgsea$differential$Regulon%in%tfs)>0
     if(all(!idx)){
       stop("one or more input 'tfs' not found in the 'gsea2' results!")
@@ -127,21 +126,14 @@ tna.plot.gsea2<-function(object, regulon.order="size", ntop=NULL, tfs=NULL, file
     gs.names<-rownames(resgsea$differential)
     gs.labels<-resgsea$differential$Regulon
   } else {
-    stop("gsea1 slot is empty or null!")
+    stop("gsea2 is empty or null!")
   }
-  ##-----get gene sets used in the current gsea1 analysis
-  if(object@status$analysis["GSEA2"]!="[x]"){
-    cat("-invalid 'GSEA2' status! \n")
-    stop("NOTE: gsea plot requires results from 'tna.gsea2' analysis!")
-  }
-  if(object@para$gsea2$tnet=="ref"){
+  ##-----get gene sets used in the current gsea analysis
+  if(object@para$gsea2$tnet=="cdt"){
+    rgcs<-object@listOfModulators
+    if(ylabPanels[2]=="Regulon")ylabPanels[2]<-"Modulators"
+  } else if(object@para$gsea2$tnet=="ref"){
     rgcs<-tna.get(object,what="refregulons.and.mode")
-    
-    refreg<-tna.get(object,what="regulons.and.mode")
-    lapply(1:length(rgcs),function(i){
-      tp<-setdiff(names(rgcs[[i]]),names(refreg[[i]]))
-      rgcs[[i]]<<-rgcs[[i]][tp]
-    })
   } else {
     rgcs<-tna.get(object,what="regulons.and.mode")
   }
@@ -154,7 +146,8 @@ tna.plot.gsea2<-function(object, regulon.order="size", ntop=NULL, tfs=NULL, file
   ##----plot
   for(i in 1:length(gs.names)){
     ##-----get merged data
-    tests<-get.merged.data2(gs.names[i],gs.labels[i],phenotype,rgcs,resgsea$differential[i,,drop=FALSE],object@para$gsea2$exponent)
+    tests<-get.merged.data2(gs.names[i],gs.labels[i],phenotype,rgcs,resgsea$differential[i,,drop=FALSE],
+                            object@para$gsea2$exponent)
     tests$pv[["up"]]<-resgsea$positive[i,"Pvalue"]
     tests$adjpv[["up"]]<-resgsea$positive[i,"Adjusted.Pvalue"]
     tests$pv[["down"]]<-resgsea$negative[i,"Pvalue"]
@@ -235,7 +228,7 @@ check.format1<-function(tests){
     c(min(tests$runningScores[,i]),max(tests$runningScores[,i]))
   })
   tp<-c(min(tp),max(tp))
-  if(min(tests$geneList)>=0)tp[1]=0
+  if(min(tests$geneList)>=0 && tp[1]>=0)tp[1]=0
   tpp<-round(tp,digits=1)
   if(tp[1]<tpp[1])tpp[1]=tpp[1]-0.1
   if(tp[2]>tpp[2])tpp[2]=tpp[2]+0.1
@@ -257,7 +250,7 @@ check.format2<-function(tests){
     c(tp1,tp2)
   })
   tp<-c(min(tp),max(tp))
-  if(min(tests$geneList)>=0)tp[1]=0
+  if(min(tests$geneList)>=0 && tp[1]>=0)tp[1]=0
   tpp<-round(tp,digits=1)
   if(tp[1]<tpp[1])tpp[1]=tpp[1]-0.1
   if(tp[2]>tpp[2])tpp[2]=tpp[2]+0.1
@@ -375,7 +368,7 @@ gsea.plot1 <- function(runningScore, enrichmentScore, positions, adjpv,
     labels<-paste(labels," (adj.p ",format(adjpv,scientific=TRUE,digits=2),")",sep="")
     #labels=sub("=","<",labels)
     legend("topright", legend=labels, col=rsc.colors, pch="---", bty="n",cex=cexlev[4], 
-           pt.cex=1.0, title="Regulon", title.adj = 0, ...=...)
+           pt.cex=1.0, title=ylabPanels[2], title.adj = 0, ...=...)
   }
 }
 
@@ -498,7 +491,7 @@ gsea.plot1.1 <- function(runningScore, enrichmentScore, positions, adjpv, geneLi
     labels<-paste(labels," (adj.p ",format(adjpv,scientific=TRUE,digits=2),")",sep="")
     #labels=sub("=","<",labels)
     legend("topright", legend=labels, col=rsc.colors1, pch="---", bty="n",cex=cexlev[4], 
-           pt.cex=1.0, title="Regulon", title.adj = 0, ...=...)
+           pt.cex=1.0, title=ylabPanels[2], title.adj = 0, ...=...)
   }
 }
 
@@ -553,9 +546,10 @@ gsea.plot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enri
   # plot1
   par(family="Times")
   if(heightPanels[1]>0){
+    xlim=c(0,length(geneList))
     par(mar=c(0.0, 6.5, 1.5, 1.0),mgp=c(4.5,0.5,0),tcl=-0.2,family="Times")
     plot(x=c(1,max(rsc.vec[,1])),y=c(min(geneList),max(geneList)), type="n", 
-         axes= FALSE,xlab="", ylab=ylabPanels[1], cex.lab=cexlev[1], ylim=ylimPanels[1:2], ...=...)
+         axes= FALSE,xlab="", ylab=ylabPanels[1], cex.lab=cexlev[1], ylim=ylimPanels[1:2],xlim=xlim, ...=...)
     if(min(geneList)<0)abline(h=0,lwd=0.6)    #segments(0, 0, length(geneList), 0,col="grey70")
     sq<-c(1:length(geneList))%%sparsity;sq[sq>1]<-0
     sq<-as.logical(sq)
@@ -647,7 +641,7 @@ gsea.plot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enri
     adjpv<-c(adjpv["up"],adjpv["down"],adjpv["pv"])
     lbstat<-paste(c("Positive","Negative","Differential")," (adj.p ",adjpv,")",sep="")
     legend("topright", legend=lbstat, col=c(rsc.colors[2],rsc.colors[1],NA), pch=20, bty="n",cex=cexlev[4], 
-           pt.cex=1.2, title="Regulon", title.adj = 0,  ...=...)
+           pt.cex=1.2, title=ylabPanels[2], title.adj = 0,  ...=...)
     legend("bottomleft", legend=label, col=NA, pch=NA, bty="n",cex=cexlev[1]*1.3, pt.cex=1.2, title=NULL,  ...=...)
   }
 }

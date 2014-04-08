@@ -10,7 +10,8 @@ Get information from individual slots in a TNI object and any available results 
 }
 
 \usage{
-tni.get(object, what="summary", order=TRUE, ntop=NULL, reportNames=TRUE)
+tni.get(object, what="summary", order=TRUE, ntop=NULL, reportNames=TRUE, 
+idkey=NULL)
 }
 
 \arguments{
@@ -18,22 +19,20 @@ tni.get(object, what="summary", order=TRUE, ntop=NULL, reportNames=TRUE)
 an object of class 'TNI' \code{\link[RTN:TNI-class]{TNI-class}}.
 }
 \item{what}{
-a single character value specifying which information should be retrieved from the slots. Options: "gexp", "tfs", "para", 
-"refnet", "tnet","refregulons","regulons","cdt", "summary" and "status". Regulons can also be retrieved mapped
-to the assiged mode of action ("regulons.and.mode" or "refregulons.and.mode").
+a single character value specifying which information should be retrieved from the slots. Options: 'gexp', 'tfs', 'para', 'refnet', 'tnet','refregulons','regulons','cdt', 'summary' and 'status'. Regulons can also be retrieved mapped to the assiged mode of action ('regulons.and.mode' or 'refregulons.and.mode').
 }
 \item{order}{
 a single logical value specifying whether or not the output data should be ordered by significance. 
-Valid only for "cdt" option.
+Valid only for 'cdt' option.
 }
 \item{ntop}{
-a single integer value specifying to select how many results of top significance from "cdt" option.
+a single integer value specifying to select how many results of top significance from 'cdt' option.
 }
 \item{reportNames}{
-a single logical value specifying to reporte regulators with 'names'
-(when reportNames=TRUE) or not (when reportNames=FALSE). This option is effective 
-only if regulators were named with alternative identifiers. It takes effect for 
-the option "cdt".
+a single logical value specifying to report regulators with 'names' (when reportNames=TRUE) or not (when reportNames=FALSE). This option takes effect on 'cdt' option if regulators are named with alternative identifiers.
+}
+\item{idkey}{
+an optional single character value specifying an ID name from the available 'TNI' annotation to be used as alias for data query outputs (obs. it has no effect on consolidated tables).
 }
 }
 

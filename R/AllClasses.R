@@ -3,7 +3,7 @@ setClass(
   "TNI",
   representation(
     gexp="matrix",
-    transcriptionFactors="char_Or_null",
+    transcriptionFactors="character",
     modulators="char_Or_null",
     annotation="data.frame",
     para="list",
@@ -29,7 +29,7 @@ setClass(
   representation(
     referenceNetwork="matrix",
     transcriptionalNetwork="matrix",
-    transcriptionFactors="char_Or_null",
+    transcriptionFactors="character",
     phenotype="num_Or_int_Or_null", 
     hits="char_Or_null",
     annotation="data.frame",
@@ -57,3 +57,29 @@ setClass(
     status=list()
   )
 )
+
+##Class AVS (Associated Variant Set)
+setClass(
+  "AVS",
+  representation(
+    markers="character",
+    validatedMarkers="data.frame",
+    variantSet="list",
+    randomSet="list",
+    para="list",
+    results="list",
+    summary="list",
+    status="character"
+  ),
+  prototype=list(
+    markers=character(),
+    validatedMarkers=data.frame(),
+    variantSet=list(),
+    randomSet=list(),
+    para=list(),
+    results=list(),
+    summary=list(),
+    status=character()
+  )
+)
+

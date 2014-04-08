@@ -9,21 +9,21 @@ Modulators of transcription factor (TF) activity assessed by conditional mutual 
 This function takes a TNI object and a list of candidate modulators, and computes the conditional mutual 
 information over the TF-target interactions in a transcriptional network (with multiple hypothesis 
 testing corrections). For each TF, the method measures the change in the mutual information between 
-the TF and its targets conditioned on the gene expression of a modulator.
+the TF and its targets conditioned to the gene expression of a modulator.
 }
 
 \usage{
 tni.conditional(object, modulators=NULL, tfs=NULL, sampling=35, pValueCutoff=0.01, 
-pAdjustMethod="bonferroni", statFilter="phyper", statUniverse="all", minRegulonSize=15, 
-minIntersectSize=5, miThreshold=NULL, parChunks=10, verbose=TRUE)
+pAdjustMethod="bonferroni", minRegulonSize=15, minIntersectSize=5, 
+miThreshold="md", prob=0.95, pwtransform=FALSE, verbose=TRUE)
 }
 
 \arguments{
 
 \item{object}{
 a processed object of class 'TNI' \code{\link[RTN:TNI-class]{TNI-class}} evaluated by the methods 
-\code{\link[RTN:tni.permutation]{tni.permutation}}, \code{\link[RTN:tni.bootstrap]{tni.bootstrap}} and
-\code{\link[RTN:tni.dpi.filter]{tni.dpi.filter}}.
+\code{\link[RTN:tni.permutation]{tni.permutation}}, \code{\link[RTN:tni.bootstrap]{tni.bootstrap}} 
+and \code{\link[RTN:tni.dpi.filter]{tni.dpi.filter}}.
 }
 \item{modulators}{
 a vector with gene identifiers for those considered as candidate modulators. If NULL, the function 
@@ -45,15 +45,6 @@ a single numeric value specifying the cutoff for p-values considered significant
 a single character value specifying the p-value adjustment method to be used 
 (see 'p.adjust' for details).
 }
-\item{statFilter}{
-a single character value specifying the statistics used to test whether the number of 
-modulated elements observed in a regulon is greater than would be expected by chance. 
-Options: "phyper" and "pchisq" (see "phyper" and "pchisq" for details).
-}
-\item{statUniverse}{
-a single character value specifying the universe of the statistical test. Options: "all" (all possible interactions) 
-and "tnet" (only the observed interactions in the transcriptional network).
-}
 \item{minRegulonSize}{
 a single integer or numeric value specifying the minimum number of 
 elements in a regulon. Gene sets with fewer than this number are 
@@ -64,12 +55,13 @@ a single integer or numeric value specifying the minimum number of observed modu
 elements in a regulon (as percentage value).
 }
 \item{miThreshold}{
-an optional single numeric value specifying the mutual information threshold used in the conditional analysis.
-If NULL, 'miThreshold' will be estimated by permutation analysis.
+a single character value specifying the underlying distribution used to estimate the mutual information threshold. Options: 'md', 'md.tf' and 'md.tf.tar'. In the 1st case, 'miThreshold' is estimated from a pooled null distribution representing random modulators. In the 2nd case, specific mutual information thresholds are estimated for each TF conditioned on random modulators, while in the last case the 'miThreshold' is estimated for each individual TF-target interaction conditioned on random modulators. In all three options the 'miThreshold' is estimated by permutation analysis (see 'prob'). Alternatively, users can provide a custom mutual information threshold (numeric value >= 0).
 }
-\item{parChunks}{
-an optional single integer value specifying the number of permutation chunks to 
-be used in the parallel analysis.
+\item{prob}{
+a probability value in [0,1] used to estimate the 'miThreshold' based on the underlying quantile distribution.
+}
+\item{pwtransform}{
+a single logical value specifying whether a Box-Cox power transformation should be used to improve the data symmetry (this procedure might be carefully used as a complementary test to check the validity of the inferred associations).
 }
 \item{verbose}{
 a single logical value specifying to display detailed messages (when 

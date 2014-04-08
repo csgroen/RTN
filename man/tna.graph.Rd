@@ -10,7 +10,8 @@ Extract results from a TNA object and compute a graph.
 }
 
 \usage{
-tna.graph(object, tnet = "dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", amapCutoff=NULL)
+tna.graph(object, tnet = "dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", 
+amapCutoff=NULL, mask=FALSE)
 }
 
 \arguments{
@@ -39,12 +40,15 @@ a single character value specifying which method should be used to filter associ
 (only when gtype="amap"). Options: "phyper","quantile" and "custom".
 }
 \item{amapCutoff}{
-a single numeric value (>=0 and <=1) specifying the cutoff for association map filter. When 
+a single numeric value (>=0 and <=1) specifying the cutoff for the association map filter. When 
 amapFilter="phyper", amapCutoff corresponds to a pvalue cutoff; when amapFilter="quantile", 
 amapCutoff corresponds to a quantile threshold; and when amapFilter="custom", amapCutoff is 
 a JC threshold.
 }
-
+\item{mask}{
+a logical value specifying to apply a mask on the 'amapFilter', keeping at least the 
+best weighted edge (when verbose=TRUE) or not (when verbose=FALSE).
+}
 }
 
 \value{

@@ -71,7 +71,7 @@ Objects can be created by calls of the form
     \code{para}, and \code{results}.    
     }
     \item{\code{status}:}{Object of class \code{"character"},
-    a single character value specifying the status of the TNI object 
+    a character value specifying the status of the TNI object 
     based on the available methods.
     }    
   }
@@ -96,13 +96,12 @@ Mauro Castro
 
 \seealso{
 \code{\link[RTN:TNI-class]{TNI-class}}.
+\code{\link[RTN:tni2tna.preprocess]{tni2tna.preprocess}}.
 }
 
 \examples{
 
-data(dt4rtn)
-
-rtni <- new("TNI", gexp=dt4rtn$gexp, transcriptionFactors=dt4rtn$tfs)
+## see 'tni2tna.preprocess' method!
 
 }
 

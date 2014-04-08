@@ -10,7 +10,8 @@ Extract results from a TNI object and compute a graph.
 }
 
 \usage{
-tni.graph(object, tnet = "dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", amapCutoff=NULL)
+tni.graph(object, tnet = "dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", 
+amapCutoff=NULL, mask=FALSE, ntop=NULL)
 }
 
 \arguments{
@@ -23,8 +24,8 @@ Options: "ref" and "dpi".
 }
 \item{gtype}{
 a single character value specifying the graph type.
-Options: "rmap", "amap" and "mmap". The "rmap" option returns regulatory maps represented by 
-TFs and targets (regulons); "amap" computes association maps among regulons (estimates the overlap using the Jaccard Coefficient); "mmap" returns modulated maps derived from the \code{\link[RTN:tni.conditional]{tni.conditional}} function.
+Options: "rmap", "amap", "mmap" and "mmapDetailed". The "rmap" option returns regulatory maps represented by 
+TFs and targets (regulons); "amap" computes association maps among regulons (estimates the overlap using the Jaccard Coefficient); "mmap" and "mmapDetailed" return modulated maps derived from the \code{\link[RTN:tni.conditional]{tni.conditional}} function.
 }
 \item{minRegulonSize}{
 a single integer or numeric value specifying the minimum number of 
@@ -39,12 +40,18 @@ a single character value specifying which method should be used to filter associ
 (only when gtype="amap"). Options: "phyper","quantile" and "custom".
 }
 \item{amapCutoff}{
-a single numeric value (>=0 and <=1) specifying the cutoff for association map filter. When 
+a single numeric value (>=0 and <=1) specifying the cutoff for the association map filter. When 
 amapFilter="phyper", amapCutoff corresponds to a pvalue cutoff; when amapFilter="quantile", 
 amapCutoff corresponds to a quantile threshold; and when amapFilter="custom", amapCutoff is 
 a JC threshold.
 }
-
+\item{mask}{
+a logical value specifying to apply a mask on the 'amapFilter', keeping at least the 
+best weighted edge (when verbose=TRUE) or not (when verbose=FALSE).
+}
+\item{ntop}{
+when gtype="mmapDetailed", ntop is an optional single integer value (>=1) specifying the number of TF's targets that should be used to compute the modulated map. The n targets is derived from the top ranked TF-target interations, as defined in the mutual information analysis used to construct the regulon set.
+}
 }
 
 \value{

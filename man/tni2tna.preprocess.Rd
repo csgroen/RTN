@@ -8,7 +8,8 @@ This is a generic function.
 }
 
 \usage{
-tni2tna.preprocess(object, phenotype=NULL, hits=NULL, phenoIDs=NULL, duplicateRemoverMethod="max", verbose=TRUE)
+tni2tna.preprocess(object, phenotype=NULL, hits=NULL, phenoIDs=NULL, 
+duplicateRemoverMethod="max", verbose=TRUE)
 }
 
 \arguments{

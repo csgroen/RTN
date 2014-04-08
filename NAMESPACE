@@ -1,11 +1,7 @@
 exportClasses(
  "TNI",
- "TNA"
-)
-
-export(
-  "tna.plot.gsea1",
-  "tna.plot.gsea2"
+ "TNA",
+ "AVS"
 )
 
 exportMethods(
@@ -24,10 +20,27 @@ exportMethods(
   "tna.synergy",
   "tna.shadow",
   "tna.get",
-  "tna.graph"
+  "tna.graph",
+  "avs.preprocess",
+  "avs.vse",
+  "avs.evse",
+  "avs.get"
+)
+
+export(
+  "tna.plot.gsea1",
+  "tna.plot.gsea2",
+  "avs.plot1",
+  "avs.plot2"
 )
 
 importFrom(minet, aracne)
-importFrom(snow, parSapply, parLapply, makeCluster, stopCluster)
+importFrom(snow, parSapply, parLapply, makeCluster, stopCluster, clusterExport)
 importFrom(limma, lmFit, makeContrasts, eBayes, contrasts.fit, decideTests)
 importFrom(RedeR, att.mapv, att.setv, att.sete)
+importFrom(data.table,data.table,setkey)
+importFrom(IRanges,IRanges,overlapsAny,findOverlaps,IntervalTree,metadata,reduce)
+importFrom(ff,ff)
+importFrom(car,powerTransform,bcPower)
+import(igraph)
+import(methods)

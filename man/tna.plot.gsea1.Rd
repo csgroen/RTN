@@ -50,10 +50,10 @@ a single numeric value specifying the height of the graphics region in inches.
 a character vector of length=3 specifying the the title for the y axes.
 }
 \item{xlab}{
-a single character specifying the the title for the x axis.
+a single character value specifying the the title for the x axis.
 }
 \item{labPheno}{
-a single character specifying a label for the phenotype (will also be used as the name of output file).
+a single character value specifying a label for the phenotype (will also be used as the name of output file).
 }
 \item{alpha}{
 a single numeric value in [0,1] specifying the transparency of the hits in the ranked list.
@@ -93,7 +93,7 @@ rtni<-tni.dpi.filter(rtni)
 rtna<-tni2tna.preprocess(rtni, phenotype=dt4rtn$pheno, hits=dt4rtn$hits, phenoIDs=dt4rtn$phenoIDs)
 
 # run GSEA analysis pipeline
-rtna <- tna.gsea(rtna, stepFilter=FALSE)
+rtna <- tna.gsea1(rtna, stepFilter=FALSE)
 
 # plot available GSEA results
 tna.plot.gsea1(rtna, width=6, height=4, heightPanels=c(1,0.7,3), 

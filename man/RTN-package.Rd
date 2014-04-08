@@ -8,9 +8,7 @@ Reconstruction and Analysis of Transcriptional Networks.
 }
 
 \description{
-This package provides classes and methods for transcriptional network inference and and analysis. 
-Modulators of transcription factor activity are assessed by conditional mutual information, and master regulators 
-are mapped to phenotypes using different strategies, e.g., gene set enrichment, shadow and synergy analyses.
+This package provides classes and methods for transcriptional network inference and analysis. Modulators of transcription factor activity are assessed by conditional mutual information, and master regulators are mapped to phenotypes using different strategies, e.g., gene set enrichment, shadow and synergy analyses. Additionally, master regulators can be linked to genetic markers using eQTL/VSE analysis, taking advantage of the haplotype block structure mapped to the human genome in order to explore risk-associated SNPs identified in GWAS studies.
 }
 
 \details{
@@ -21,8 +19,8 @@ Depends: \tab methods, igraph\cr
 Imports: \tab minet, snow, limma, RedeR\cr
 Suggests: \tab HTSanalyzeR\cr
 License: \tab Artistic-2.0\cr
-biocViews: \tab CellBasedAssays, Bioinformatics, MultipleComparisons\cr
-Collate: \tab ClassUnions.R, AllChecks.R, AllClasses.R, AllGenerics.R, AllSupplements.R, AllPlots.R, TNA-methods.R, TNI-methods.R\cr
+biocViews: \tab NetworkInference, NetworkAnalysis, NetworkEnrichment, GeneRegulation\cr
+Collate: \tab ClassUnions.R, AllChecks.R, AllClasses.R, AllGenerics.R, AllSupplements.R, AllPlots.R, TNA-methods.R, TNI-methods.R,AVS-methods.R\cr
 LazyLoad: \tab yes\cr
 }
 }
@@ -31,7 +29,6 @@ LazyLoad: \tab yes\cr
 
 \tabular{ll}{
 \link[RTN:TNI-class]{TNI-class}: \tab an S4 class for Transcriptional Network Inference.\cr
-\link[RTN:TNA-class]{TNA-class}: \tab an S4 class for Transcriptional Network Analysis.\cr
 \link[RTN:tni.preprocess]{tni.preprocess}: \tab a preprocessing method for objects of class TNI.\cr
 \link[RTN:tni.permutation]{tni.permutation}: \tab inference of transcriptional networks.\cr
 \link[RTN:tni.bootstrap]{tni.bootstrap}: \tab inference of transcriptional networks.\cr
@@ -40,6 +37,7 @@ LazyLoad: \tab yes\cr
 \link[RTN:tni.get]{tni.get}: \tab get information from individual slots in a TNI object.\cr
 \link[RTN:tni.graph]{tni.graph}: \tab compute a graph from TNI objects.\cr
 \link[RTN:tni2tna.preprocess]{tni2tna.preprocess}: \tab a preprocessing method for objects of class TNI.\cr
+\link[RTN:TNA-class]{TNA-class}: \tab an S4 class for Transcriptional Network Analysis.\cr
 \link[RTN:tna.mra]{tna.mra}: \tab master regulator analysis (MRA) over a list of regulons.\cr
 \link[RTN:tna.overlap]{tna.overlap}: \tab overlap analysis over a list of regulons.\cr
 \link[RTN:tna.gsea1]{tna.gsea1}: \tab one-tailed gene set enrichment analysis (GSEA) over a list of regulons.\cr
@@ -49,6 +47,13 @@ LazyLoad: \tab yes\cr
 \link[RTN:tna.get]{tna.get}: \tab get information from individual slots in a TNA object.\cr
 \link[RTN:tna.plot.gsea1]{tna.plot.gsea1}: \tab plot results from the one-tailed GSEA.\cr
 \link[RTN:tna.plot.gsea2]{tna.plot.gsea2}: \tab plot results from the two-tailed GSEA.\cr
+\link[RTN:AVS-class]{AVS-class}: \tab an S4 class to do enrichment analyses in associated variant sets (AVSs).\cr
+\link[RTN:avs.preprocess]{avs.preprocess}: \tab build associated variant sets for objects of class AVS.\cr
+\link[RTN:avs.vse]{avs.vse}: \tab variant set enrichment analysis.\cr
+\link[RTN:avs.evse]{avs.evse}: \tab an eQTL/VSE pipeline for variant set enrichment analysis.\cr
+\link[RTN:avs.get]{avs.get}: \tab get information from individual slots in an AVS object.\cr
+\link[RTN:avs.plot1]{avs.plot1}: \tab plot results from AVS methods, single plots.\cr
+\link[RTN:avs.plot2]{avs.plot2}: \tab plot results from AVS methods, multiple plots.\cr
 }
                    
 Further information is available in the vignettes by typing \code{vignette("RTN")}. Documented 

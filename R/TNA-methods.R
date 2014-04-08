@@ -9,25 +9,22 @@ setMethod("initialize",
 		function(.Object, transcriptionalNetwork, referenceNetwork, 
              transcriptionFactors, phenotype=NULL, hits=NULL) {
 			##-----check arguments
-			if(missing(transcriptionalNetwork))stop("NOTE: 'transcriptionalNetwork' is missing!")
+			if(missing(transcriptionalNetwork))stop("NOTE: 'transcriptionalNetwork' is missing!",call.=FALSE)
 			if(missing(referenceNetwork))referenceNetwork=transcriptionalNetwork
-			if(missing(transcriptionFactors))stop("NOTE: 'transcriptionFactors' is missing!")
+			if(missing(transcriptionFactors))stop("NOTE: 'transcriptionFactors' is missing!",call.=FALSE)
 			tnai.checks(name="transcriptionalNetwork",transcriptionalNetwork)
 			tnai.checks(name="referenceNetwork",referenceNetwork)
 			tnai.checks(name="transcriptionFactors",transcriptionFactors)      
 			tnai.checks(name="phenotype",phenotype)
 			tnai.checks(name="hits",hits)
       if(is.null(phenotype) && is.null(hits)){
-       stop("NOTE: either 'phenotype' or 'hits' should be available!")
+       stop("NOTE: either 'phenotype' or 'hits' should be available!",call.=FALSE)
       }
       b1<-sum(!colnames(referenceNetwork)==colnames(transcriptionalNetwork)) > 0
 			b2<-sum(!rownames(referenceNetwork)==rownames(transcriptionalNetwork)) > 0
-			if(b1 || b2) stop("NOTE: col and row names in 'referenceNetwork' should match 'transcriptionalNetwork'!")
+			if(b1 || b2) stop("NOTE: col and row names in 'referenceNetwork' should match 'transcriptionalNetwork'!",call.=FALSE)
 			if(sum(!transcriptionFactors%in%colnames(transcriptionalNetwork))>0)
-			  stop("NOTE: one or more 'transcriptionFactors' missing in the 'transcriptionalNetwork'!")
-			#if(length(transcriptionFactors)<2){
-			#  stop("NOTE: require at least two 'transcriptionFactors' for overlap, synergy and shadow analyses!")
-			#}
+			  stop("NOTE: one or more 'transcriptionFactors' missing in the 'transcriptionalNetwork'!",call.=FALSE)
       if(is.null(names(transcriptionFactors)))names(transcriptionFactors)<-transcriptionFactors      
 			##-----initialization
 			.Object@transcriptionalNetwork<-transcriptionalNetwork
@@ -107,22 +104,27 @@ setMethod("initialize",
 setMethod(
   "tna.get",
   "TNA",
-  function(object, what="summary", order=TRUE, ntop=NULL, reportNames=TRUE) {
+  function(object, what="summary", order=TRUE, ntop=NULL, reportNames=TRUE, idkey=NULL) {
     ##-----check input arguments
     tnai.checks(name="tna.what",para=what)
     tnai.checks(name="order",para=order)
     tnai.checks(name="ntop",para=ntop)
-    tnai.checks(name="report",para=report)
+    tnai.checks(name="reportNames",para=reportNames)
+    tnai.checks(name="idkey",para=idkey)
     ##-----get query
     query<-NULL
     if(what=="tnet"){
       query<-object@transcriptionalNetwork
+      if(!is.null(idkey))query<-translateQuery(query,idkey,object,"matrixAndNames",reportNames)
     } else if(what=="refnet"){
-      query<-object@referenceNetwork      
+      query<-object@referenceNetwork
+      if(!is.null(idkey))query<-translateQuery(query,idkey,object,"matrixAndNames")
     } else if(what=="tfs"){
       query<-object@transcriptionFactors
+      if(!is.null(idkey))query<-translateQuery(query,idkey,object,"vecAndContent")
     } else if(what=="pheno"){
       query<-object@phenotype
+      if(!is.null(idkey))warning("'idkey' argument has no effect on phenotype data!")
     } else if(what=="regulons" || what=="regulons.and.pheno"){
       query<-object@listOfRegulons
       if( what=="regulons.and.pheno" && !is.null(object@phenotype) ){
@@ -134,6 +136,9 @@ setMethod(
           tpp<-pheno[idx]
           query[[rg]]<<-tpp
         })
+        if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndNames",reportNames)
+      } else {
+        if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndContent",reportNames)
       }
     } else if(what=="refregulons" || what=="refregulons.and.pheno"){
       query<-object@listOfReferenceRegulons
@@ -146,6 +151,9 @@ setMethod(
           tpp<-pheno[idx]
           query[[rg]]<<-tpp
         })
+        if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndNames",reportNames)
+      } else {
+        if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndContent",reportNames)
       }
     } else if(what=="para"){
       query<-object@para
@@ -169,7 +177,7 @@ setMethod(
           query[,1]<-names(object@transcriptionFactors)[idx]
         }
       }
-    } 
+    }
     else if(what=="gsea1"){
       query<-object@results$GSEA1.results
       if(is.data.frame(query) && nrow(query)>0 ){
@@ -183,15 +191,16 @@ setMethod(
           }
         }
         if(order){
-          if(nrow(query)>1) query<-query[order(query[,"Pvalue"]),,drop=FALSE]
+          if(nrow(query)>1) query<-query[order(query[,"Observed.Score"],decreasing=TRUE),,drop=FALSE]
         }
         if(reportNames){
           idx<-match(query[,1],object@transcriptionFactors)
           query[,1]<-names(object@transcriptionFactors)[idx]
         }
       }
+      if(!is.null(idkey))warning("'idkey' argument has no effect on consolidated tables!")
     } else if(what=="gsea2"){
-      getqs<-function(query,ntop){
+      getqs<-function(query,order=TRUE,reportNames=TRUE,ntop=NULL){
         if(is.data.frame(query) && nrow(query)>0 ){
           if(is.null(ntop)){
             query<-query[query[,"Adjusted.Pvalue"] <= object@para$gsea2$pValueCutoff,,drop=FALSE]
@@ -203,7 +212,7 @@ setMethod(
             }
           }
           if(order){
-            if(nrow(query)>1) query<-query[order(query[,"Pvalue"]),,drop=FALSE]
+            if(nrow(query)>1) query<-query[order(query[,"Observed.Score"]),,drop=FALSE]
           }
           if(reportNames){
             idx<-match(query[,1],object@transcriptionFactors)
@@ -213,9 +222,22 @@ setMethod(
         query
       }
       query<-list()
-      query$differential<-getqs(object@results$GSEA2.results$differential,ntop=ntop)
-      query$positive<-getqs(object@results$GSEA2.results$positive,ntop=nrow(query$differential))
-      query$negative<-getqs(object@results$GSEA2.results$negative,ntop=nrow(query$differential))
+      if(is.null(ntop)){
+        tp<-rownames(getqs(object@results$GSEA2.results$differential))
+        tp<-intersect(tp,rownames(getqs(object@results$GSEA2.results$positive)))
+        tp<-intersect(tp,rownames(getqs(object@results$GSEA2.results$negative)))
+        dft<-getqs(object@results$GSEA2.results$differential,order,reportNames)
+        dft<-dft[rownames(dft)%in%tp,]
+        query$differential<-dft
+        query$positive<-object@results$GSEA2.results$positive[rownames(dft),,drop=FALSE]
+        query$negative<-object@results$GSEA2.results$negative[rownames(dft),,drop=FALSE]
+      } else {
+        query$differential<-getqs(object@results$GSEA2.results$differential,order,reportNames,ntop)
+        query$positive<-object@results$GSEA2.results$positive[rownames(query$differential),,drop=FALSE]
+        query$negative<-object@results$GSEA2.results$negative[rownames(query$differential),,drop=FALSE]
+      }
+      
+      if(!is.null(idkey))warning("'idkey' argument has no effect on consolidated tables!")
     } else if(what=="overlap"){
       query<-object@results$overlap.results
       if(is.data.frame(query) && nrow(query)>0){
@@ -238,7 +260,8 @@ setMethod(
           query[,2]<-names(object@transcriptionFactors)[idx]        
         }
       }
-    } else if(what=="synergy"){ 
+      if(!is.null(idkey))warning("'idkey' argument has no effect on consolidated tables!")
+    } else if(what=="synergy"){
       query<-object@results$synergy.results
       if(is.data.frame(query) && nrow(query)>0 ){
         idx<-!is.na(query[,"Adjusted.Pvalue"])
@@ -262,6 +285,7 @@ setMethod(
           query[,2]<-names(object@transcriptionFactors)[idx]        
         }
       }
+      if(!is.null(idkey))warning("'idkey' argument has no effect on consolidated tables!")
     } else if(what=="shadow"){
       query<-object@results$shadow.results$results
       if(is.data.frame(query) && nrow(query)>0){
@@ -286,6 +310,7 @@ setMethod(
           query[,2]<-names(object@transcriptionFactors)[idx]        
         }
       }
+      if(!is.null(idkey))warning("'idkey' argument has no effect on consolidated tables!")
     } else if(what=="regulons.and.mode"){
       query<-list()
       for(i in names(object@listOfRegulons)){
@@ -293,6 +318,7 @@ setMethod(
         names(tp)<-object@listOfRegulons[[i]]
         query[[i]]<-tp
       }
+      if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndNames",reportNames)
     } else if(what=="refregulons.and.mode"){
       query<-list()
       for(i in names(object@listOfReferenceRegulons)){
@@ -300,6 +326,7 @@ setMethod(
         names(tp)<-object@listOfReferenceRegulons[[i]]
         query[[i]]<-tp
       }
+      if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndNames",reportNames)
     } else if(what=="summary"){
       query<-object@summary
     } else if(what=="status"){
@@ -353,8 +380,8 @@ setMethod(
     object@summary$rgc[,"above.min.size"]<-sum(gs.size>minRegulonSize)
     
     ##-----run mra analysis
-    if(verbose)cat("-Performing master regulatory analysis ...\n")
-    if(verbose)cat("--For", object@summary$rgc[,"above.min.size"], "regulons ...\n")
+    if(verbose)cat("-Performing master regulatory analysis...\n")
+    if(verbose)cat("--For", object@summary$rgc[,"above.min.size"], "regulons...\n")
     if(object@summary$rgc[,"above.min.size"] > 0){
       MRA.results <- multiHyperGeoTest4RTN(rgcs, universe=tnet.universe, 
                                        hits=object@hits, minGeneSetSize=object@para$mra$minRegulonSize, 
@@ -470,6 +497,12 @@ setMethod(
       verbose=verbose
     )
     GSEA1.results<-data.frame(Regulon=rownames(GSEA1.results),GSEA1.results,stringsAsFactors=FALSE)
+    ##-----if orderAbsValue, remove eventual regulons associated with the noise tail
+    if(orderAbsValue){
+      idx<-GSEA1.results$Observed.Score<=0
+      GSEA1.results$Pvalue[idx]<-1
+      GSEA1.results$Adjusted.Pvalue[idx]<-1
+    }
     ##-----add results
     object@results$GSEA1.results<-GSEA1.results     
     GSEA1.results<-tna.get(object,what="gsea1", reportNames=FALSE)
@@ -495,7 +528,7 @@ setMethod(
     tnai.checks(name="minRegulonSize",para=minRegulonSize)
     tnai.checks(name="nPermutations",para=nPermutations)
     tnai.checks(name="exponent",para=exponent)
-    tnai.checks(name="tnet",para=tnet)
+    tnai.checks(name="gsea.tnet",para=tnet)
     tnai.checks(name="stepFilter",para=stepFilter)
     tnai.checks(name="tfs",para=tfs)
     tnai.checks(name="verbose",para=verbose)
@@ -506,19 +539,15 @@ setMethod(
                                     nPermutations,exponent,tnet)
     ##------check phenotype for gsea2
     if(!min(object@phenotype)<0 || !max(object@phenotype)>0){
-      stop("NOTE: 'phenotype' data should be provided as differential expression values (e.g. logFC)!")
+      warning("NOTE: it is expected 'phenotype' data as differential expression values (e.g. logFC)!")
     }
     ##-----get tnet and regulons
-    if(tnet=="ref"){
+    if(tnet=="cdt"){
+      tnet<-object@transcriptionalNetwork
+      listOfRegulonsAndMode<-object@listOfModulators
+    } else if(tnet=="ref"){
       tnet<-object@referenceNetwork
       listOfRegulonsAndMode<-tna.get(object,what="refregulons.and.mode")
-      
-      refreg<-tna.get(object,what="regulons.and.mode")
-      lapply(1:length(listOfRegulonsAndMode),function(i){
-        tp<-setdiff(names(listOfRegulonsAndMode[[i]]),names(refreg[[i]]))
-        listOfRegulonsAndMode[[i]]<<-listOfRegulonsAndMode[[i]][tp]
-      })
-      
     } else {
       tnet<-object@transcriptionalNetwork
       listOfRegulonsAndMode<-tna.get(object,what="regulons.and.mode")
@@ -548,6 +577,7 @@ setMethod(
     } else {
       tfs<-object@transcriptionFactors
     }
+    listOfRegulonsAndMode<-listOfRegulonsAndMode[tfs]
     
     ##-----check regulon size
     gs.size <- sapply(names(listOfRegulonsAndMode), function(reg){
@@ -583,7 +613,7 @@ setMethod(
     
     ##-----run gsea2
     GSEA2.results<-run.gsea2(
-      listOfRegulonsAndMode=listOfRegulonsAndMode[tfs],
+      listOfRegulonsAndMode=listOfRegulonsAndMode,
       phenotype=phenotype,
       pAdjustMethod=object@para$gsea2$pAdjustMethod,
       pValueCutoff=object@para$gsea2$pValueCutoff,
@@ -598,35 +628,36 @@ setMethod(
     dfpheno<-GSEA2.results$differential[,"Observed.Score"]
     names(dfpheno)<-rownames(GSEA2.results$differential)
     dfpheno<-dfpheno[GSEA2.results$differential[,"Adjusted.Pvalue"]<pValueCutoff]
-    
-    #get the expected phenotype on the observed tnet structure
-    idx<-c(names(dfpheno),setdiff(names(listOfRegulonsAndMode),names(dfpheno)))
-    tnet<-tnet[idx,names(dfpheno),drop=FALSE]
-    tnet<-tnet[rowSums(abs(tnet))>0,,drop=FALSE]
-    expectedEffect<-tnet
-    for(i in 1:nrow(expectedEffect)){
-      tp<-dfpheno/abs(dfpheno);tp[is.nan(tp)]=0
-      expectedEffect[i,]<-expectedEffect[i,]*tp
+    if(length(dfpheno)>0 && length(tfs)>1){
+      #get the expected phenotype on the observed tnet structure
+      idx<-c(names(dfpheno),setdiff(names(listOfRegulonsAndMode),names(dfpheno)))
+      tnet<-tnet[idx,names(dfpheno),drop=FALSE]
+      tnet<-tnet[rowSums(abs(tnet))>0,,drop=FALSE]
+      expectedEffect<-tnet
+      for(i in 1:nrow(expectedEffect)){
+        tp<-dfpheno/abs(dfpheno);tp[is.nan(tp)]=0
+        expectedEffect[i,]<-expectedEffect[i,]*tp
+      }
+      #get observed enrichment score for all regulons
+      obscore<-run.tna.cmap(listOfRegulonsAndMode[rownames(expectedEffect)], phenotype, exponent)
+      obscore<-round(obscore,4)
+      #check consistency of downstream effects
+      dseffect<-list()
+      sapply(colnames(expectedEffect),function(reg){
+        expeffect<-expectedEffect[,reg]
+        expeffect<-expeffect[expeffect!=0]
+        expeffect<-expeffect/abs(expeffect)
+        obs<-obscore[names(expeffect)]
+        obseffect<-obs/abs(obs)
+        obseffect[is.nan(obseffect)]=0
+        dseffect[[reg]]<<-rbind(expected.effect=expeffect,
+                                observed.effect=obseffect,
+                                observed.score=obs)
+        NULL
+      })
+      GSEA2.results$dseffect<-dseffect
     }
-    #get observed enrichment score for all regulons
-    obscore<-run.tna.cmap(listOfRegulonsAndMode[rownames(expectedEffect)], phenotype, exponent)
-    obscore<-round(obscore,4)
-    #check consistency of downstream effects
-    dseffect<-list()
-    sapply(colnames(expectedEffect),function(reg){
-      expeffect<-expectedEffect[,reg]
-      expeffect<-expeffect[expeffect!=0]
-      expeffect<-expeffect/abs(expeffect)
-      obs<-obscore[names(expeffect)]
-      obseffect<-obs/abs(obs)
-      obseffect[is.nan(obseffect)]=0
-      dseffect[[reg]]<<-rbind(expected.effect=expeffect,
-                              observed.effect=obseffect,
-                              observed.score=obs)
-      NULL
-    })
-    GSEA2.results$dseffect<-dseffect
-    
+
     ##-----add results
     object@results$GSEA2.results<-GSEA2.results
     GSEA2.results<-tna.get(object,what="gsea2", reportNames=FALSE)
@@ -963,7 +994,8 @@ setMethod(
 setMethod(
   "tna.graph",
   "TNA",
-  function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", amapCutoff=NULL){
+  function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", 
+           amapCutoff=NULL, mask=FALSE){
     # chech igraph compatibility
     b1<-"package:igraph0" %in% search()
     b2<- "igraph0" %in%  loadedNamespaces()
@@ -978,6 +1010,7 @@ setMethod(
     tnai.checks(name="minRegulonSize",para=minRegulonSize)
     tnai.checks(name="amapFilter",para=amapFilter)
     tnai.checks(name="amapCutoff",para=amapCutoff)
+    tnai.checks(name="mask",para=mask)
     ##-----get tnet
     if(tnet=="ref"){
       tnet<-object@referenceNetwork
@@ -1019,23 +1052,34 @@ setMethod(
     } else { #get association maps
       adjmt<-tni.amap(tnet)
       #-------------------filter J.C.
+      if(mask){
+        #set a mask to keep at least the best weighted edge
+        mask<-sapply(1:ncol(adjmt),function(i){
+          tp<-adjmt[,i]
+          tp==max(tp)
+        })
+        nc<-ncol(mask);nr<-nrow(mask)
+        mask<-mask+mask[rev(nr:1),rev(nc:1)]>0
+      } else {
+        mask<-array(0,dim=dim(adjmt))
+      }
       if(amapFilter=="phyper"){
         #filter based phyper distribution (remove non-significant overlaps)
         if(is.null(amapCutoff))amapCutoff=0.01
         pvalue<-amapCutoff
         pmat<-tni.phyper(tnet)
-        adjmt[pmat>pvalue]=0
+        adjmt[pmat>pvalue & mask==0]=0
       } else if(amapFilter=="quantile"){
         #filter based on quantile distribution
         if(is.null(amapCutoff))amapCutoff=0.75
         jc<-as.integer(amapCutoff*100)+1
         tp<-as.numeric(adjmt)
         jc<-quantile(tp[tp>0],probs = seq(0, 1, 0.01), na.rm=TRUE)[jc]
-        adjmt[adjmt<jc]=0
+        adjmt[adjmt<jc & mask==0]=0
       } else {
         #custom filter
         if(is.null(amapCutoff))amapCutoff=0
-        adjmt[adjmt<amapCutoff]=0
+        adjmt[adjmt<amapCutoff & mask==0]=0
       }
       #-------------------
       g<-igraph::graph.adjacency(adjmt, diag=FALSE, mode="undirected", weighted=TRUE)
@@ -1047,7 +1091,7 @@ setMethod(
       V(g)$nodeAlias<-names(tfs)[idx]
       V(g)$degree<-sz[idx]
       #---set main attribs
-      g<-att.sete(g=g, from="weight", to='edgeWidth', nquant=10, xlim=c(1,15,1))
+      g<-att.sete(g=g, from="weight", to='edgeWidth', nquant=10, xlim=c(1,15,1), roundleg=2)
       g<-att.setv(g=g, from="degree", to='nodeSize', xlim=c(20,100,1), nquant=10, roundleg=1)
       V(g)$nodeFontSize<-20
     }
@@ -1064,7 +1108,7 @@ setMethod(
 ##internal pre-processing (input via tni2tna.preprocess)
 tna.preprocess<-function(object, phenoIDs=NULL, duplicateRemoverMethod="max", verbose=TRUE) {
   ##-----data preprocessing
-  if(verbose)cat("-Preprocessing for input data ...\n")
+  if(verbose)cat("-Preprocessing for input data...\n")
   ##-----data preprocessing: phenotype
   if(!is.null(object@phenotype))object<-pheno.preprocess(object, phenoIDs, duplicateRemoverMethod, verbose)
   ##-----data preprocessing: hits
@@ -1082,11 +1126,11 @@ pheno.preprocess<-function(object, phenoIDs, duplicateRemoverMethod, verbose){
   object@summary$gl[,"input"]<-length(object@phenotype)    
   ##-----check phenoIDs if available
   if(!is.null(phenoIDs)){
-    if(verbose)cat("--Mapping 'phenotype' to 'phenoIDs' ...\n")
+    if(verbose)cat("--Mapping 'phenotype' to 'phenoIDs'...\n")
     ids<-phenoIDs[,2]
     names(ids)<-phenoIDs[,1]
-    if(sum( !(names(object@phenotype) %in% names(ids)) )>0 ){
-      stop("NOTE: all names in 'phenotype' should be available in 'phenoIDs'!")
+    if( !all(names(object@phenotype) %in% names(ids)) ){
+      stop("NOTE: all names in 'phenotype' should be available in col1 of 'phenoIDs'!",call.=FALSE)
     }
     names(object@phenotype)<-ids[names(object@phenotype)]
   }
@@ -1094,27 +1138,23 @@ pheno.preprocess<-function(object, phenoIDs, duplicateRemoverMethod, verbose){
   pheno<-object@phenotype
   idx<-!is.na(pheno) & names(pheno)!="" & !is.na(names(pheno))
   if(any(!idx)){
-    if(verbose) cat("--Removing genes without names or values in 'phenotype' ...\n")
+    if(verbose) cat("--Removing genes without names or values in 'phenotype'...\n")
     pheno<-pheno[idx]
   }
   object@summary$gl[,"valid"]<-length(pheno) #genes with valid values
-  if(length(pheno)==0)stop("NOTE: input 'phenotype' contains no useful data!\n")
+  if(length(pheno)==0)stop("NOTE: input 'phenotype' contains no useful data!\n",call.=FALSE)
   ##-----duplicate remover in phenotype
   uninames<-unique(names(pheno))
   if(length(names(pheno))>length(uninames)){
-    if(verbose) cat("--Removing duplicated genes ...\n")
+    if(verbose) cat("--Removing duplicated genes...\n")
     pheno<-tna.duplicate.remover(phenotype=pheno,method=duplicateRemoverMethod)
   }
   object@summary$gl[,"duplicate.removed"]<-length(pheno)	#genes after removing duplicates
-  if(length(pheno)==0)stop("NOTE: input 'phenotype' contains no useful data!\n")
-  ##-----phenotype ordering
-  #if(verbose) cat("--Ordering gene list decreasingly ...\n")
-  #if(orderAbsValue)pheno<-abs(pheno)
-  #object@phenotype<-pheno[order(pheno,decreasing=TRUE)]
+  if(length(pheno)==0)stop("NOTE: input 'phenotype' contains no useful data!\n",call.=FALSE)
   object@phenotype<-pheno
 
   ##-----check phenotype names in transcriptionalNetwork
-  #if(verbose)cat("--Checking 'transcriptionalNetwork' targets in 'phenotype' ...  ")
+  #if(verbose)cat("--Checking 'transcriptionalNetwork' targets in 'phenotype'...")
   #idx<-rownames(object@transcriptionalNetwork) %in% names(object@phenotype)
   #checkmatch<-sum(idx)/length(idx)
   #if(checkmatch==0){
@@ -1138,20 +1178,20 @@ hits.preprocess<-function(object, phenoIDs, verbose){
   object@summary$hts[,"input"]<-length(object@hits)
   ##-----check phenoIDs if available
   if(!is.null(phenoIDs)){
-    if(verbose)cat("--Mapping 'hits' to 'phenoIDs' ...\n")
+    if(verbose)cat("--Mapping 'hits' to 'phenoIDs'...\n")
     ids<-phenoIDs[,2]
     names(ids)<-phenoIDs[,1]
     if(sum( !(names(object@hits) %in% names(ids)) )>0 ){
-      stop("NOTE: all names in 'hits' should be available in 'phenoIDs'!")
+      stop("NOTE: all names in 'hits' should be available in 'phenoIDs'!",call.=FALSE)
     }
     object@hits<-ids[object@hits]
   }
   ##-----remove duplicated hits
-  if(verbose) cat("--Removing duplicated hits ...\n")
+  if(verbose) cat("--Removing duplicated hits...\n")
   object@hits<-unique(object@hits)
   object@hits<-object@hits[!is.na(object@hits)]
   object@summary$hts[,"duplicate.removed"]<-length(object@hits)
-  if(length(object@hits)==0)stop("NOTE: input 'hits' contains no useful data!\n")
+  if(length(object@hits)==0)stop("NOTE: input 'hits' contains no useful data!\n",call.=FALSE)
   
   ##-----remove hits not listed in the universe
   #if(verbose) cat("--Removing 'hits' not listed in 'transcriptionalNetwork' universe...\n")
@@ -1173,7 +1213,7 @@ data.integration<-function(object, verbose){
   
   ##-----check annotation if available  
   if(nrow(object@annotation)>0){
-    if(verbose)cat("--Mapping 'transcriptionalNetwork' annotation to 'phenotype' ...\n")
+    if(verbose)cat("--Mapping 'transcriptionalNetwork' annotation to 'phenotype'...\n")
     annot<-object@annotation
     #col with possible current refids
     col0<-sapply(1:ncol(annot),function(i){
@@ -1226,7 +1266,7 @@ data.integration<-function(object, verbose){
       idx<-match(tfs,object@annotation[,coltf])
       tnames<-object@annotation[idx,1]
       names(tnames)<-names(tfs)  
-      colnames(object@transcriptionalNetwork)<-tnames  
+      colnames(object@transcriptionalNetwork)<-tnames
       #update referenceNetwork colnames
       tfs<-colnames(object@referenceNetwork)
       coltf<-sapply(1:ncol(object@annotation),function(i){
@@ -1253,7 +1293,7 @@ data.integration<-function(object, verbose){
       ##-----remove duplicate nodes in tnet
       uninames<-unique(rownames(object@transcriptionalNetwork))
       if(length(rownames(object@transcriptionalNetwork))>length(uninames)){
-        if(verbose) cat("--Removing duplicated targets ...\n")
+        if(verbose) cat("--Removing duplicated targets...\n")
         abmax<-function(x){
           imax<-max(x);imin<-min(x)
           ifelse(imax>abs(imin),imax,imin)
@@ -1266,7 +1306,7 @@ data.integration<-function(object, verbose){
         object@transcriptionalNetwork<-tnet    
       }
       object@summary$tar[,"duplicate.removed"]<-nrow(object@transcriptionalNetwork)
-      if(prod(dim(object@transcriptionalNetwork))==0)stop("NOTE: input 'transcriptionalNetwork' contains no useful data!\n")
+      if(prod(dim(object@transcriptionalNetwork))==0)stop("NOTE: input 'transcriptionalNetwork' contains no useful data!\n",call.=FALSE)
       ##-----duplicate remover in refnet
       uninames<-unique(rownames(object@referenceNetwork))
       if(length(rownames(object@referenceNetwork))>length(uninames)){
@@ -1293,7 +1333,7 @@ data.integration<-function(object, verbose){
         names(object@listOfModulators)<-tnames
         lmod<-sapply(object@listOfModulators,function(reg){
           if(length(reg)>0){
-            idx<-object@annotation[,coltf]%in%names(reg)
+            idx<-match(names(reg),object@annotation[,coltf])
             mnames<-object@annotation[idx,1]
             mnames<-aggregate(reg,by=list(mnames),max)
             reg<-mnames[,2]
@@ -1317,7 +1357,7 @@ data.integration<-function(object, verbose){
       idx<-match(uninames,object@annotation[,1])
       object@annotation<-object@annotation[idx,]
       rownames(object@annotation)<-object@annotation[,1]
-      object@annotation<-object@annotation[,-col0,drop=FALSE] #agora da pra remover!
+      object@annotation<-object@annotation[,-col0,drop=FALSE] #agora da pra tirar!
       ##-----check ordering
       tp1<-rownames(object@annotation)
       tp2<-rownames(object@transcriptionalNetwork)
@@ -1328,26 +1368,29 @@ data.integration<-function(object, verbose){
         object@transcriptionalNetwork<-object@transcriptionalNetwork[rownames(object@annotation),]
         object@referenceNetwork<-object@referenceNetwork[rownames(object@annotation),]
       } else {
-        warning("NOTE: possible mismatched names between 'transcriptionalNetwork' and 'annotation'!")
+        warning("NOTE: possible mismatched names between 'transcriptionalNetwork' and 'annotation'!",call.=FALSE)
       }
     }
   }
   ##update
   object@summary$tar[,"valid"]<-nrow(object@transcriptionalNetwork)
-  if(nrow(object@transcriptionalNetwork)==0)stop("NOTE: input 'transcriptionalNetwork' contains no useful data!\n")
+  if(nrow(object@transcriptionalNetwork)==0)stop("NOTE: input 'transcriptionalNetwork' contains no useful data!\n",call.=FALSE)
   
   #-----check phenotype names in transcriptionalNetwork
   if(!is.null(object@phenotype)){
-    if(verbose)cat("--Checking 'transcriptionalNetwork' in 'phenotype' ...  ")
+    if(verbose)cat("--Checking agreement between 'transcriptionalNetwork' and 'phenotype'... ")
     phenoIDs<-unique(c(names(object@phenotype),object@hits))
     idx<-rownames(object@transcriptionalNetwork) %in% phenoIDs
-    checkmatch<-sum(idx)/length(idx)
-    if(checkmatch==0){
-      stop("NOTE: 'no agreement between 'transcriptionalNetwork' and 'phenotype' names!")
-    } else if(checkmatch<0.9){
-      warning(paste("Only",round(checkmatch*100,1),"% of 'transcriptionalNetwork' targets can be mapped to 'phenotype'!"))
-    } else {
-      if(verbose)cat(paste(round(checkmatch*100,1),"% agreement! \n"))
+    agreement<-sum(idx)/length(idx)*100
+    if(verbose)cat(paste(round(agreement,1),"% ! \n",sep=""))
+    if(agreement<50){
+      idiff<-round(100-agreement,1)
+      tp<-paste("NOTE: ",idiff,"% of 'transcriptionalNetwork' targets not represented in the 'phenotype'!",sep="")
+      stop(tp,call.=FALSE)
+    } else if(agreement<90){
+      idiff<-round(100-agreement,1)
+      tp<-paste("NOTE: ",idiff,"% of 'transcriptionalNetwork' targets not represented in the 'phenotype'!",sep="")
+      warning(tp,call.=FALSE)
     }
   }
   
@@ -1359,11 +1402,11 @@ data.integration<-function(object, verbose){
       object@hits<-hits.int
     }
     object@summary$hts[,"valid"]<-length(object@hits)
-    if(length(object@hits)==0)stop("NOTE: input 'hits' contains no useful data!\n")
+    if(length(object@hits)==0)stop("NOTE: input 'hits' contains no useful data!\n",call.=FALSE)
   }
   
   ##-----extracting regulons from 'transcriptionalNetwork' 
-  if(verbose) cat("--Extracting regulons ...\n")
+  if(verbose) cat("--Extracting regulons...\n")
   #Regulons from tnet
   listOfRegulons<-list()
   for(i in object@transcriptionFactors){
@@ -1372,7 +1415,7 @@ data.integration<-function(object, verbose){
   }
   object@listOfRegulons<-listOfRegulons
   
-  #   if(verbose) cat("--Removing empty regulons ...\n")
+  #   if(verbose) cat("--Removing empty regulons...\n")
   #   len<-unlist(lapply(listOfRegulons,length))
   #   object@listOfRegulons<-listOfRegulons[len>0]
   #   #Regulons refnet
@@ -1392,7 +1435,7 @@ data.integration<-function(object, verbose){
     listOfReferenceRegulons[[i]]<-rownames(object@referenceNetwork)[idx]
   }
   object@listOfReferenceRegulons<-listOfReferenceRegulons
-  if(length(object@listOfRegulons)==0)stop("NOTE: derived 'listOfRegulons' contains no useful data!\n")
+  if(length(object@listOfRegulons)==0)stop("NOTE: derived 'listOfRegulons' contains no useful data!\n",call.=FALSE)
   
   ##-----update and return
   object@status$preprocess["integration"] <- "[x]"
@@ -1419,15 +1462,15 @@ run.overlap <- function(listOfRegulons, universe, pAdjustMethod="BH",
   ##-----stop when no gene set passes the size requirement
   if(all(unlist(lapply(listOfRegulons,length))==0)){
     tp<-" overlapped genes with the universe!\n The largest number of overlapped genes is: "
-    stop(paste("NOTE: no regulon has >= ", minRegulonSize, tp, max.size, sep=""))    
+    stop(paste("NOTE: no regulon has >= ", minRegulonSize, tp, max.size, sep=""),call.=FALSE)    
   }
   ##-----get filtered list
   gs.id <- which(gs.size >= minRegulonSize)
   n.gs.discarded <- length(listOfRegulons) - length(gs.id)
   listOfRegulons <- listOfRegulons[gs.id]
   
-  if(verbose)cat("-Performing overlap analysis ...\n")
-  if(verbose)cat("--For", length(listOfRegulons), "regulons ...\n")
+  if(verbose)cat("-Performing overlap analysis...\n")
+  if(verbose)cat("--For", length(listOfRegulons), "regulons...\n")
   if(length(listOfRegulons) > 0){
     HGT.results <- tna.hyper.pairs(
       listOfRegulons, universe=universe, 
@@ -1473,7 +1516,7 @@ run.gsea1 <- function(listOfRegulons, phenotype, pAdjustMethod="BH",
   ##-----stop when no gene set passes the size requirement
   if(all(unlist(lapply(listOfRegulons,length))==0)){
     tp<-" overlapped genes with the universe!\n The largest number of overlapped genes is: "
-    stop(paste("NOTE: no regulon has >= ", minRegulonSize, tp, max.size, sep=""))
+    stop(paste("NOTE: no regulon has >= ", minRegulonSize, tp, max.size, sep=""),call.=FALSE)
   }
   ##-----get filtered list
   gs.id <- which(gs.size >= minRegulonSize)
@@ -1595,7 +1638,7 @@ run.synergy <- function(collectionsOfPairsR1R2, labpair, phenotype, pAdjustMetho
                        pValueCutoff=0.05, minIntersectSize=1, nPermutations=1000, exponent=1, 
                        verbose=TRUE) {
   ##check arguments
-  tnai.checks("rgcs",collectionsOfPairsR1R2)
+  tnai.checks("listOfRegulonPairs",collectionsOfPairsR1R2)
   tnai.checks("labpair",labpair)
   tnai.checks("phenotype",phenotype)
   tnai.checks("pAdjustMethod",pAdjustMethod)
@@ -1643,8 +1686,8 @@ run.shadow <- function(collectionsOfPairsR1, collectionsOfPairsR2, labpair, phen
                        pAdjustMethod="BH", pValueCutoff=0.05, nPermutations=1000, 
                        minIntersectSize=1, exponent=1, verbose=TRUE) {
   ##check arguments
-  tnai.checks("rgcs",collectionsOfPairsR1)
-  tnai.checks("rgcs",collectionsOfPairsR2)
+  tnai.checks("listOfRegulonPairs",collectionsOfPairsR1)
+  tnai.checks("listOfRegulonPairs",collectionsOfPairsR2)
   tnai.checks("phenotype",phenotype)
   tnai.checks("pAdjustMethod",pAdjustMethod)
   tnai.checks("pValueCutoff",pValueCutoff)
@@ -1654,7 +1697,7 @@ run.shadow <- function(collectionsOfPairsR1, collectionsOfPairsR2, labpair, phen
   tnai.checks("verbose",verbose)
   tnai.checks("labpair",labpair)
   if(length(collectionsOfPairsR1)!=length(collectionsOfPairsR2)){
-    stop("NOTE: 'collectionsOfPairsR1' and 'collectionsOfPairsR2' should have the same length!")
+    stop("NOTE: 'collectionsOfPairsR1' and 'collectionsOfPairsR2' should have the same length!",call.=FALSE)
   }
   
   ##check if package snow has been loaded and 
@@ -1670,11 +1713,11 @@ run.shadow <- function(collectionsOfPairsR1, collectionsOfPairsR2, labpair, phen
   }, error=function(e){ FALSE 
   })
   if( b1 && b2) {
-    if(verbose)cat("-Performing shadow analysis (parallel version - ProgressBar not available) ...\n")
+    if(verbose)cat("-Performing shadow analysis (parallel version - ProgressBar not available)...\n")
   } else {
-    if(verbose)cat("-Performing shadow analysis ...\n")
+    if(verbose)cat("-Performing shadow analysis...\n")
   }
-  if(verbose)cat("--For", length(collectionsOfPairsR1), "regulon pairs ...\n")
+  if(verbose)cat("--For", length(collectionsOfPairsR1), "regulon pairs...\n")
   
   ##compute enrichment scores for 1st shadow candidates
   regize<-sapply(1:length(collectionsOfPairsR1),function(i){

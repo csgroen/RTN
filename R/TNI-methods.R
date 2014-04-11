@@ -100,7 +100,13 @@ setMethod(
         if(verbose)warning(tp1,tp2,call.=FALSE)
       }
     }
-    
+    #----check sd in gexp
+    sd.check<-apply(object@gexp,1,sd)
+    sd.check<-sd.check==0
+    if(any(sd.check)){
+      if(verbose)cat("--Removing inconsistent data: standard deviation is zero for", sum(sd.check),"gene(s)! \n")
+      object@gexp<-object@gexp[!sd.check,]
+    }
     #-----check TFs in gexp
     object@summary$tfs[,"input"]<-length(object@transcriptionFactors)
     if(verbose) cat("--Checking TFs in the dataset...\n")

@@ -21,11 +21,14 @@ Objects can be created by calls of the form \code{new("AVS", markers)}.
   \describe{
     \item{\code{markers}:}{Object of class \code{"character"}, a character vector with rs# markers.
     }
-    \item{\code{validatedMarkers}:}{Object of class \code{"data.frame"}, a data frame with genome positions of the validated markers.
+    \item{\code{validatedMarkers}:}{Object of class \code{"data.frame"}, 
+    a data frame with genome positions of the validated markers.
     }  
-    \item{\code{variantSet}:}{Object of class \code{"list"}, an associated variant set.
+    \item{\code{variantSet}:}{Object of class \code{"list"}, 
+    an associated variant set.
     }
-    \item{\code{randomSet}:}{Object of class \code{"list"}, a random associated variant set. 
+    \item{\code{randomSet}:}{Object of class \code{"list"}, 
+    a random associated variant set. 
     }
     \item{\code{para}:}{Object of class \code{"list"},
     a list of parameters for variant set enrichment analysis.

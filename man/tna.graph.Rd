@@ -10,8 +10,8 @@ Extract results from a TNA object and compute a graph.
 }
 
 \usage{
-tna.graph(object, tnet = "dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", 
-amapCutoff=NULL, mask=FALSE)
+tna.graph(object, tnet = "dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, 
+amapFilter="quantile", amapCutoff=NULL, ...)
 }
 
 \arguments{
@@ -45,10 +45,7 @@ amapFilter="phyper", amapCutoff corresponds to a pvalue cutoff; when amapFilter=
 amapCutoff corresponds to a quantile threshold; and when amapFilter="custom", amapCutoff is 
 a JC threshold.
 }
-\item{mask}{
-a logical value specifying to apply a mask on the 'amapFilter', keeping at least the 
-best weighted edge (when verbose=TRUE) or not (when verbose=FALSE).
-}
+\item{...}{ additional arguments passed to tna.graph function. } 
 }
 
 \value{

@@ -73,6 +73,7 @@ Mauro Castro, Xin Wang
 
 \seealso{
 \code{\link[RTN:TNA-class]{TNA-class}}
+\code{\link[RTN:tna.plot.gsea1]{tna.plot.gsea1}}
 }
 
 \examples{

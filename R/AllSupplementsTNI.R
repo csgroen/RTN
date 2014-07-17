@@ -263,7 +263,7 @@ tni.perm.pooled=function(object, parChunks=10, verbose=TRUE){
 
 ##------------------------------------------------------------------------
 ##compute delta mi from pooled null distributions, returns global mi markers
-miThresholdMd=function(gexp, nsamples, prob=0.95, nPermutations=1000, 
+miThresholdMd=function(gexp, nsamples, prob=c(0.05,0.95), nPermutations=1000, 
                        estimator="pearson", verbose=TRUE){
   perm.pmim<-function(x, nsamples, nsc, estimator="pearson"){
     x<-t(x[,sample(ncol(x),nsamples)]) ##i.e. sample modulators
@@ -275,26 +275,27 @@ miThresholdMd=function(gexp, nsamples, prob=0.95, nPermutations=1000,
     x[x<0]=0
     t(x)
   }
+  if(length(prob)==1)prob=sort(c(1-prob,prob))
   if(nsamples>ncol(gexp))nsamples=ncol(gexp)
   ##build null distribution
-  nsc<-10 #set a scale-up factor for permutation
+  nsc<-10 #scale-up the rounds of this global permutation
   if(verbose)pb<-txtProgressBar(style=3)
   nullmark<-sapply(1:nPermutations, function(i){
     if(verbose)setTxtProgressBar(pb, i/nPermutations)
     rmil<-perm.pmim(gexp,nsamples=nsamples,nsc=nsc,estimator=estimator)
     rmih<-perm.pmim(gexp,nsamples=nsamples,nsc=nsc,estimator=estimator)
-    permt<-abs(rmih-rmil)
-    quantile(permt,probs=prob,na.rm=TRUE,names=FALSE)
+    quantile(rmih-rmil,probs=prob,na.rm=TRUE,names=FALSE)
   })
   if(verbose)close(pb)
-  mimark<-max(nullmark,na.rm=TRUE)
+  mimark<-c(median(nullmark[1,],na.rm=TRUE),median(nullmark[2,],na.rm=TRUE))
   return(mimark)
 }
 
 ##------------------------------------------------------------------------
 ##compute delta mi, returns mi markers for each tf individually
-miThresholdMdTf<-function(gexp, tfs, nsamples, prob=0.95, nPermutations=1000, 
+miThresholdMdTf<-function(gexp, tfs, nsamples, prob=c(0.05,0.95), nPermutations=1000, 
                           estimator="pearson", verbose=TRUE){
+  if(length(prob)==1)prob=sort(c(1-prob,prob))
   #---get low/high sample idxs
   nc<-ncol(gexp)
   idxl<-1:nsamples
@@ -306,44 +307,215 @@ miThresholdMdTf<-function(gexp, tfs, nsamples, prob=0.95, nPermutations=1000,
     ridx<-sample(nc)
     rmil<-tni.pmim(gexp[,ridx[idxl]],tfs=tfs,estimator=estimator)
     rmih<-tni.pmim(gexp[,ridx[idxh]],tfs=tfs,estimator=estimator)
-    rmid<-abs(rmih-rmil)
-    apply(rmid,2,quantile,probs=prob,na.rm=TRUE,names=FALSE)
+    apply(rmih-rmil,2,quantile,probs=prob,na.rm=TRUE,names=FALSE)
   })
   if(verbose)close(pb)
+  idx<-c(1:(length(tfs)*2))%%2
+  rmil<-rmid[idx==1,]
+  rmih<-rmid[idx==0,]
   if(length(tfs)>1){
-    dmimark<-apply(rmid,1,max,na.rm=TRUE)
+    dmimark<-cbind(apply(rmil,1,median,na.rm=TRUE),apply(rmih,1,median,na.rm=TRUE))
+    rownames(dmimark)<-tfs
   } else {
-    dmimark<-max(rmid,na.rm=TRUE)
+    dmimark<-c(median(rmid,na.rm=TRUE),median(rmid,na.rm=TRUE))
   }
-  names(dmimark)<-tfs
   dmimark
 }
 
-##compute delta mi, returns mi markers for each tf-target individually
-miThresholdMdTfTar<-function(gexp, tfs, nsamples, prob=0.95, nPermutations=1000, 
-                             estimator="pearson", verbose=TRUE){
+##------------------------------------------------------------------------
+##compute delta mi, returns mi null for each tf 
+##randomization applyed on modulators (very conservative)
+miMdTfStats<-function(gexp, regulons, nsamples, nPermutations=1000, 
+                      estimator="pearson", minRegulonSize, verbose=TRUE){
+  tfs<-names(regulons)
+  #---set minimun size to compute the null
+  #---modulated targets < minRegulonSize should score zero
+  sz<-unlist(lapply(regulons,length))
+  if(any(sz<minRegulonSize)){
+    sapply(names(sz[sz==0]),function(tf){
+      regulons[[tf]]<<-sample(rownames(gexp),minRegulonSize)
+    })
+  }
   #---get low/high sample idxs
   nc<-ncol(gexp)
   idxl<-1:nsamples
   idxh<-(nc-nsamples-1):nc
+  idxp<-unique(c(tfs,as.character(unlist(regulons))))
+  gexp<-gexp[idxp,,drop=FALSE]
   #---run permutation
-  dmimark<-sapply(1:length(tfs),function(i){
-    if(verbose)cat(paste("-",i,"/",length(tfs),"\n",sep=""))
-    if(verbose)pb<-txtProgressBar(style=3)
-    rmid<-sapply(1:nPermutations,function(j){
-      if(verbose)setTxtProgressBar(pb, j/nPermutations)
-      ridx<-sample(nc)
-      rmil<-tni.pmim(gexp[,ridx[idxl]],tfs=tfs[i],estimator=estimator)
-      rmih<-tni.pmim(gexp[,ridx[idxh]],tfs=tfs[i],estimator=estimator)
-      abs(rmih-rmil)
+  if(verbose)pb<-txtProgressBar(style=3)
+  rmid<-sapply(1:nPermutations,function(i){
+    if(verbose)setTxtProgressBar(pb, i/nPermutations)
+    ridx<-sample(nc)
+    rmil<-tni.pmim(gexp[,ridx[idxl]],tfs=tfs,estimator=estimator)
+    rmih<-tni.pmim(gexp[,ridx[idxh]],tfs=tfs,estimator=estimator)
+    sapply(tfs,function(tf){
+      l<-rmil[regulons[[tf]],tf]
+      h<-rmih[regulons[[tf]],tf]
+      #median(h-l)/(sd(h)+sd(l)) 
+      (median(h)-median(l))/(sd(h)+sd(l)) 
     })
-    if(verbose)close(pb)
-    apply(rmid,1,quantile,probs=prob,na.rm=TRUE,names=FALSE)
   })
-  rownames(dmimark)<-rownames(gexp)
-  colnames(dmimark)<-tfs
-  dmimark
+  if(verbose)close(pb)
+  if(length(tfs)==1){
+    rmid<-array(rmid,dim=c(1,length(rmid)))
+    rownames(rmid)<-tfs
+    med<-apply(rmid,1,median)
+    std<-apply(rmid,1,sd)
+    zscore<-rmid-med
+    zscore<-zscore/std
+  } else {
+    rownames(rmid)<-tfs
+    med<-apply(rmid,1,median)
+    std<-apply(rmid,1,sd)
+    zscore<-apply(rmid,2,'-',med)
+    zscore<-apply( zscore, 2 ,'/',std)
+  }
+  list(dist=rmid,median=med,sd=std,zscore=zscore)
 }
+
+##------------------------------------------------------------------------
+###check modulator stability
+#1) computational cost forbids default use in the current implementation
+#2) only one modulator each time
+#3) intends to remove evident unstable modulations of selected modulators
+cdt.stability<-function(gexp,estimator,mrkboot,miThreshold,spsz,md,tfs,sigDelta,
+                    nboot=100,consensus=95, verbose=TRUE){
+  bcount<-sigDelta;bcount[,]<-0
+  if(verbose)pb<-txtProgressBar(style=3)
+  for(i in 1:nboot){
+    if(verbose)setTxtProgressBar(pb, i/nboot)
+    gxtemp<-gexp[,sample(ncol(gexp),replace=TRUE)]
+    idxl<-1:spsz
+    idxh<-(ncol(gxtemp)-spsz+1):ncol(gxtemp)
+    idx<-sort.list(gxtemp[md,])
+    idxl<-idx[idxl]
+    idxh<-idx[idxh]
+    mil<-tni.pmim(gxtemp[,idxl],tfs,estimator=estimator)
+    mih<-tni.pmim(gxtemp[,idxh],tfs,estimator=estimator)
+    mid<-mih-mil
+    if(miThreshold=="md.tf" && length(tfs)>1){
+      stabt<-t(apply(mid,1,"<",mrkboot[,1])) | t(apply(mid,1,">",mrkboot[,2]))
+    } else {
+      stabt<- mid<mrkboot[1] | mid>mrkboot[2]
+    }
+    bcount <- bcount + stabt
+  }
+  if(verbose)close(pb)
+  bcount>=as.integer( nboot * (consensus/100) )
+}
+
+##------------------------------------------------------------------------
+##compute delta mi, returns mi null for each tf 
+##randomization applyed across modulators and regulons
+# miMdTfStats2<-function(gexp, regulons, nsamples, nPermutations=1000, 
+#                       estimator="pearson", verbose=TRUE){
+#   tfs<-names(regulons)
+#   #---get low/high sample idxs
+#   nc<-ncol(gexp)
+#   idxl<-1:nsamples
+#   idxh<-(nc-nsamples-1):nc
+#   idxp<-unique(c(tfs,as.character(unlist(regulons))))
+#   gexp<-gexp[idxp,]
+#   #---run permutation
+#   if(verbose)pb<-txtProgressBar(style=3)
+#   rmid<-sapply(1:nPermutations,function(i){
+#     if(verbose)setTxtProgressBar(pb, i/nPermutations)
+#     ridx<-sample(nc)
+#     rmil<-tni.pmim(gexp[,ridx[idxl]],tfs=tfs,estimator=estimator)
+#     rmih<-tni.pmim(gexp[,ridx[idxh]],tfs=tfs,estimator=estimator)
+#     rmid<-rmih-rmil
+#     sapply(tfs,function(tf){
+#       noise<-sd(rmih[regulons[[tf]],tf])+sd(rmil[regulons[[tf]],tf])
+#       median( rmid[regulons[[tf]],tf] ) / noise
+#     })
+#   })
+#   rownames(rmid)<-tfs
+#   rmid
+# }
+
+##------------------------------------------------------------------------
+##compute delta mi, returns mi null for each tf 
+##randomization applyed across modulators and regulons
+# miMdTfStats<-function(gexp, regulons, nsamples, nPermutations=1000, 
+#                       estimator="pearson", verbose=TRUE){
+#   tfs<-names(regulons)
+#   #---get low/high sample idxs
+#   nc<-ncol(gexp)
+#   idxl<-1:nsamples
+#   idxh<-(nc-nsamples-1):nc
+#   idxp<-unique(c(tfs,as.character(unlist(regulons))))
+#   gexp<-gexp[idxp,]
+#   #---run permutation
+#   if(verbose)pb<-txtProgressBar(style=3)
+#   rmid<-sapply(1:nPermutations,function(i){
+#     if(verbose)setTxtProgressBar(pb, i/nPermutations)
+#     x<-t(apply(gexp,1,sample))
+#     rmil<-tni.pmim(x[,idxl],tfs=tfs,estimator=estimator)
+#     rmih<-tni.pmim(x[,idxh],tfs=tfs,estimator=estimator)
+#     rmid<-rmih-rmil
+#     sapply(tfs,function(tf){
+#       noise<-sd(rmih[regulons[[tf]],tf])+sd(rmil[regulons[[tf]],tf])
+#       median( rmid[regulons[[tf]],tf] ) / noise
+#     })
+#   })
+#   rownames(rmid)<-tfs
+#   rmid
+# }
+
+##------------------------------------------------------------------------
+##compute delta mi, returns mi null for each tf 
+##randomization on gexp matrix
+# miMdTfStats<-function(gexp, regulons, nsamples, nPermutations=1000, 
+#                       estimator="pearson", verbose=TRUE){
+#   tfs<-names(regulons)
+#   #---get low/high sample idxs
+#   nc<-ncol(gexp)
+#   idxl<-1:nsamples
+#   idxh<-(nc-nsamples-1):nc
+#   idxp <- which( rownames(gexp) %in% c(tfs,as.character(unlist(regulons))) )
+#   #---run permutation
+#   if(verbose)pb<-txtProgressBar(style=3)
+#   rmid<-sapply(1:nPermutations,function(i){
+#     if(verbose)setTxtProgressBar(pb, i/nPermutations)
+#     x<-array(sample(gexp),dim=dim(gexp),dimnames=list(rownames(gexp),colnames(gexp)))
+#     rmil<-tni.pmim(x[idxp,idxl],tfs=tfs,estimator=estimator)
+#     rmih<-tni.pmim(x[idxp,idxh],tfs=tfs,estimator=estimator)
+#     rmid<-rmih-rmil
+#     sapply(tfs,function(tf){
+#       noise<-sd(rmih[regulons[[tf]],tf])+sd(rmil[regulons[[tf]],tf])
+#       median( rmid[regulons[[tf]],tf] ) / noise
+#     })
+#   })
+#   rownames(rmid)<-tfs
+#   rmid
+# }
+
+##compute delta mi, returns mi markers for each tf-target individually
+# miThresholdMdTfTar<-function(gexp, tfs, nsamples, prob=0.95, nPermutations=1000, 
+#                              estimator="pearson", verbose=TRUE){
+#   #---get low/high sample idxs
+#   nc<-ncol(gexp)
+#   idxl<-1:nsamples
+#   idxh<-(nc-nsamples-1):nc
+#   #---run permutation
+#   dmimark<-sapply(1:length(tfs),function(i){
+#     if(verbose)cat(paste("-",i,"/",length(tfs),"\n",sep=""))
+#     if(verbose)pb<-txtProgressBar(style=3)
+#     rmid<-sapply(1:nPermutations,function(j){
+#       if(verbose)setTxtProgressBar(pb, j/nPermutations)
+#       ridx<-sample(nc)
+#       rmil<-tni.pmim(gexp[,ridx[idxl]],tfs=tfs[i],estimator=estimator)
+#       rmih<-tni.pmim(gexp[,ridx[idxh]],tfs=tfs[i],estimator=estimator)
+#       abs(rmih-rmil)
+#     })
+#     if(verbose)close(pb)
+#     apply(rmid,1,quantile,probs=prob,na.rm=TRUE,names=FALSE)
+#   })
+#   rownames(dmimark)<-rownames(gexp)
+#   colnames(dmimark)<-tfs
+#   dmimark
+# }
 
 ##------------------------------------------------------------------------
 #bootstrap analysis
@@ -438,7 +610,7 @@ cv.filter<-function(gexp, ids){
   # compute CV
   meangx<-apply(gexp,1,mean,na.rm=TRUE)
   sdgx<-apply(gexp,1,sd,na.rm=TRUE)
-  cvgx<-sdgx/meangx
+  cvgx<-abs(sdgx/meangx)
   # aline ids
   ids <- data.frame(ids[rownames(gexp),], CV=cvgx, stringsAsFactors=FALSE)
   # remove probes without annotation
@@ -453,6 +625,72 @@ cv.filter<-function(gexp, ids){
   gexp<-gexp[rownames(ids),]
   ids<-ids[,-ncol(ids)]
   return(list(gexp=gexp,ids=ids))
+}
+
+##------------------------------------------------------------------------
+checkModuationEffect<-function(gexp,tfs,modregulons,modulatedTFs,glstat,spsz,minRegulonSize,
+                               pValueCutoff,nPermutations,estimator,pAdjustMethod,
+                               count,verbose){
+  for(md in names(modregulons)){
+    mdreg<-modregulons[[md]][modulatedTFs]
+    glstat$observed[[md]]$sig2noise<-glstat$observed[[md]]$sig2noise[modulatedTFs]
+    #null dist
+    glstat$null[[md]]<-miMdTfStats(gexp,regulons=mdreg, nsamples=spsz,
+                                   nPermutations=nPermutations, estimator=estimator, 
+                                   minRegulonSize=minRegulonSize,verbose=verbose)
+    glstat$null[[md]]$ci<-qnorm(1-(pValueCutoff/length(modulatedTFs)))
+    #observed scores
+    zscore<-glstat$observed[[md]]$sig2noise
+    zscore<-(zscore-glstat$null[[md]]$median)/glstat$null[[md]]$sd
+    glstat$observed[[md]]$zscore<-zscore
+    pvals<-pnorm(abs(zscore), lower.tail=FALSE)
+    glstat$observed[[md]]$pvals<-pvals
+    glstat$observed[[md]]$adjpvals<-p.adjust(pvals, method=pAdjustMethod)
+    glstat$observed[[md]]<-data.frame(glstat$observed[[md]])
+  }
+  #get glstatrev
+  glstatrev<-list()
+  mds<-names(glstat$observed)
+  for(md in mds){
+    observed<-glstat$observed[[md]]
+    null<-glstat$null[[md]]
+    for(tf in modulatedTFs){
+      glstatrev$observed[[tf]]<-rbind(glstatrev$observed[[tf]],observed[tf,])
+      glstatrev$null[[tf]]$dist<-rbind(glstatrev$null[[tf]]$dist,null$dist[tf,])
+      glstatrev$null[[tf]]$median<-c(glstatrev$null[[tf]]$median,null$median[tf])
+      glstatrev$null[[tf]]$sd<-c(glstatrev$null[[tf]]$sd,null$sd[tf])
+      glstatrev$null[[tf]]$zscore<-rbind(glstatrev$null[[tf]]$zscore,null$zscore[tf,])
+      glstatrev$null[[tf]]$ci<-qnorm(1-(pValueCutoff/length(mds)))
+    }
+  }
+  for(tf in modulatedTFs){
+    rownames(glstatrev$observed[[tf]])<-mds
+    rownames(glstatrev$null[[tf]]$dist)<-mds
+    names(glstatrev$null[[tf]]$median)<-mds
+    names(glstatrev$null[[tf]]$sd)<-mds
+    rownames(glstatrev$null[[tf]]$zscore)<-mds
+    glstatrev$observed[[tf]]$adjpvals<-p.adjust(glstatrev$observed[[tf]]$pvals, method=pAdjustMethod)
+  }
+  #update summary
+  tp<-glstat$observed
+  addstats<-lapply(tfs,function(tf){
+    tpp<-count[[tf]]
+    if(tf%in%modulatedTFs && nrow(tpp)>0){
+      res<-t(sapply(rownames(tpp), function(md){
+        c(tp[[md]][tf,"zscore"],tp[[md]][tf,"pvals"],NA)
+      }))
+      colnames(res)<-c("SNR","PvSNR","AdjPvSNR")
+      res[,"SNR"]<-signif(res[,"SNR"],digits=3)
+      tpp<-data.frame(tpp,res)
+    } else {
+      tpp<-data.frame(tpp,SNR=NA,PvSNR=NA,AdjPvSNR=NA)
+    }
+    tpp
+  })
+  names(addstats)<-tfs
+  glstat$count<-addstats
+  #--
+  list(md2tf=glstat,tf2md=glstatrev)
 }
 
 ##------------------------------------------------------------------------
@@ -529,14 +767,36 @@ tni.rmap<-function(tnet){
 ##-----------------------------------------------------------------------------
 ##return an adjacence matrix for regulons
 ##using jaccard coefficient
-tni.amap<-function(tnet){
-  tnet[tnet!=0]=1
-  jc<-function(x,xmat){
-    c<-x+xmat
-    a<-colSums(c==2)
-    b<-colSums(c>0)
-    b[b==0]=1
-    a/b
+tni.amap<-function(tnet, overlap="all"){
+  if(overlap=="pos"){
+    tnet[tnet>0]<-1;tnet[tnet<0]<--1
+    jc<-function(x,xmat){
+      c<-x*xmat
+      a<-colSums(c==1)
+      c<-abs(x)+abs(xmat)
+      b<-colSums(c!=0)
+      b[b==0]=1
+      a/b
+    }
+  } else if(overlap=="neg"){
+    tnet[tnet>0]<-1;tnet[tnet<0]<--1
+    jc<-function(x,xmat){
+      c<-x*xmat
+      a<-colSums(c==-1)
+      c<-abs(x)+abs(xmat)
+      b<-colSums(c!=0)
+      b[b==0]=1
+      a/b
+    }
+  } else {
+    tnet[tnet!=0]=1
+    jc<-function(x,xmat){
+      c<-x+xmat
+      a<-colSums(c==2)
+      b<-colSums(c>0)
+      b[b==0]=1
+      a/b
+    }
   }
   amap<-apply(tnet,2,jc,xmat=tnet)
   colnames(amap)<-colnames(tnet)
@@ -861,10 +1121,6 @@ setregs2<-function(g){
   V(g)$nodeLineColor[V(g)$name%in%ndm]<-"grey85"
   V(g)$nodeFontColor<-"black"
   V(g)$nodeFontColor[V(g)$name%in%ndm]<-"grey85"
-  
-  
-  
-  
   g
 }
 drcircle<-function (nv, ybend=1, xbend=1, ang=1, rotate=0, plot=FALSE) {
@@ -907,7 +1163,7 @@ tni.phyper<-function(tnet){
 #reverse results from conditional analyses, from TF-MD to MD-TF
 cdtReverse<-function(cdt,pAdjustMethod="bonferroni"){
   cdtrev<-list()
-  sapply(1:length(cdt),function(i){
+  junk<-sapply(1:length(cdt),function(i){
     tf<-names(cdt)[i]
     tp<-cdt[[i]]
     if(nrow(tp)>0){
@@ -920,40 +1176,62 @@ cdtReverse<-function(cdt,pAdjustMethod="bonferroni"){
     }
   })
   if(length(cdtrev)>0){
-    cdtrev<-p.adjust.cdt(cdt=cdtrev,pAdjustMethod=pAdjustMethod, p.name="PvFET",adjp.name="AdjPvFET",sort.name="PvKS")
     cdtrev<-p.adjust.cdt(cdt=cdtrev,pAdjustMethod=pAdjustMethod, p.name="PvFET",adjp.name="AdjPvFET")
+    cdtrev<-p.adjust.cdt(cdt=cdtrev,pAdjustMethod=pAdjustMethod, p.name="PvKS",adjp.name="AdjPvKS",sort.name="PvKS")
+    cdtrev<-p.adjust.cdt(cdt=cdtrev,pAdjustMethod=pAdjustMethod, p.name="PvSNR",adjp.name="AdjPvSNR",global=FALSE)
   }
   cdtrev
 }
 #---------------------------------------------------------------
 #compute global p.adjustment for conditional analysis
 p.adjust.cdt<-function(cdt,pAdjustMethod="bonferroni",p.name="Pvalue",
-                       adjp.name="AdjustedPvalue",sort.name=NULL, decreasing=FALSE){
-  adjp<-array(,dim=c(1,2))
-  sapply(1:length(cdt),function(i){
-    tp<-cdt[[i]]
-    if(nrow(tp)>0){
-      if(is.character(sort.name)){
-        tp<-tp[sort.list(tp[[sort.name]],decreasing=decreasing),]
-        cdt[[i]]<<-tp
-      }
-      adjp<<-rbind(adjp,cbind(i,tp[[p.name]]))
+                       adjp.name="AdjustedPvalue",sort.name=NULL, 
+                       decreasing=FALSE, roundpv=TRUE, global=TRUE){
+  if(global){
+    #get pvalues
+    pvals<-array(,dim=c(1,2))
+    for(i in 1:length(cdt)){
+      tp<-cdt[[i]]
+      if(nrow(tp)>0 && !is.null(tp[[p.name]]))pvals<-rbind(pvals,cbind(i,tp[[p.name]]))
     }
-    NULL
-  })
-  adjp<-adjp[-1,,drop=FALSE]
-  colnames(adjp)<-c("idx","p")
-  adjp[,"p"]<-p.adjust(adjp[,"p"],method=pAdjustMethod)
-  adjp[,"p"]<-signif(adjp[,"p"], digits=4)
-  #update adjp
-  idx<-unique(adjp[,1])
-  sapply(idx,function(i){
-    tp<-cdt[[i]]
-    tp[[adjp.name]]<-adjp[adjp[,1]==i,2]
-    cdt[[i]]<<-tp
-  })
+    pvals<-pvals[-1,,drop=FALSE]
+    colnames(pvals)<-c("idx","p")
+    if(nrow(pvals)==0)return(cdt)
+    #adjust pvals
+    adjp<-pvals
+    adjp[,"p"]<-p.adjust(adjp[,"p"],method=pAdjustMethod)
+    adjp[,"p"]<-signif(adjp[,"p"], digits=3)
+    pvals[,"p"]<-signif(pvals[,"p"], digits=3)
+    #update adjusted pvalues
+    idx<-unique(adjp[,1])
+    for(i in idx){
+      tp<-cdt[[i]]
+      tp[[adjp.name]]<-adjp[adjp[,1]==i,2]
+      if(roundpv)tp[[p.name]]<-pvals[pvals[,1]==i,2]
+      cdt[[i]]<-tp
+    }
+  } else {
+    for(i in 1:length(cdt)){
+      tp<-cdt[[i]]
+      if(nrow(tp)>0 && !is.null(tp[[p.name]])){
+        tp[[adjp.name]]<-p.adjust(tp[[p.name]],method=pAdjustMethod)
+        tp[[adjp.name]]<-signif(tp[[adjp.name]], digits=3)
+        if(roundpv)tp[[p.name]]<-signif(tp[[p.name]], digits=3)
+      }
+      cdt[[i]]<-tp
+    }
+  }
+  #sort
+  if(is.character(sort.name)){
+    for(i in 1:length(cdt)){
+      tp<-cdt[[i]]
+      tp<-tp[sort.list(tp[[sort.name]],decreasing=decreasing),]
+      cdt[[i]]<-tp
+    } 
+  }
   cdt
 }
+
 sortblock.cdt<-function(cdt,coln="PvFET"){
   #sort blocks
   idx1<-unlist(lapply(cdt,nrow))
@@ -1024,4 +1302,154 @@ sortblock.cdt<-function(cdt,coln="PvFET"){
 #                dimnames=list(rownames(pmat),colnames(pmat)))           
 #   pmat
 # }
+
+##-----------------------------------------------------------------------------
+##build an igraph object from hclust
+hclust2igraph<-function(hc,length.cutoff=NULL){
+  if(class(hc)!="hclust")stop("'hc' should be an 'hclust' object!")
+  if(is.null(hc$labels))hc$labels=as.character(sort(hc$order))
+  #get treemap
+  tmap<-treemap(hc)
+  hcNodes<-tmap$hcNodes
+  hcNests<-hcNodes[hcNodes$type=="nest",]
+  hcEdges<-tmap$hcEdges
+  nestList<-tmap$nest
+  #update nest names
+  names(nestList)[hcNests$hcId]<-hcNests$node
+  #remove nests based on length cutoff
+  if(!is.null(length.cutoff)){
+    #identify rmnodes
+    rmnodes<-hcEdges[hcEdges$length<length.cutoff,]
+    rmnodes<-rmnodes$childNode[rmnodes$childNode%in%hcNests$node]
+    #update hcEdges and nestList
+    hcEdges<-hcEdges.filter1(hcEdges,hcNodes,rmnodes)
+    nestList<-nestList[!names(nestList)%in%rmnodes]
+  }
+  #build igraph and return assigments
+  g<-graph.edgelist(as.matrix(hcEdges[,1:2]), directed=TRUE)
+  #E(g)$edgeWeight<-hcEdges$length
+  tp<-hcEdges$parentHeight-min(hcEdges$parentHeight)
+  E(g)$edgeWeight<-(max(tp)-tp)/max(tp) * 100
+  E(g)$arrowType<-0
+  list(g=g,nest=nestList)
+}
+hcEdges.filter1<-function(hcEdges,hcNodes,rmnodes){
+  #get the correct order
+  rmNests<-hcNodes[hcNodes$node%in%rmnodes,]
+  rmEdges<-hcEdges[hcEdges$childNode%in%rmnodes,]
+  #get filtered hcEdges
+  hcEdges<-hcEdges[!hcEdges$childNode%in%rmNests$node,]
+  #update parents'ids
+  for(oldid in rmNests$node){
+    newid<-rmEdges$parentNode[which(rmEdges$childNode==oldid)]
+    idx<-which(hcEdges$parentNode==oldid)
+    hcEdges$parentNode[idx]<-newid
+  }
+  rownames(hcEdges)<-NULL
+  hcEdges
+}
+##-----------------------------------------------------------------------------
+##build nested maps from hclust objects
+treemap<-function(hc){
+  A=hc$merge
+  B=list()
+  C=list()
+  D=list()
+  E=list()
+  nest=list()
+  if(is.null(hc$labels))hc$labels=as.character(sort(hc$order))
+  for(i in 1:nrow(A)){
+    ai=A[i,1]
+    if(ai < 0){
+      B[[i]]= -ai
+      C[[i]]=1
+    } else {
+      B[[i]]=B[[ai]]      
+      C[[i]]=C[[ai]]+1 
+    }
+    ai=A[i,2]
+    if(ai < 0){
+      B[[i]]=sort(c(B[[i]],-ai))
+    } else {
+      B[[i]]=sort(c(B[[i]],B[[ai]]))
+      C[[i]]=max(C[[i]],C[[ai]]+1)
+    }
+    p=match(i,A)
+    D[[i]]=ifelse(p>nrow(A),p-nrow(A),p)
+    nest[[i]]=hc$labels[B[[i]]]
+  }
+  D[[nrow(A)]]=nrow(A)+1
+  for(i in 1:nrow(A)){
+    step=1
+    find=D[[i]]  
+    while(find<D[[nrow(A)]]){
+      find=D[[find]]
+      step=step+1
+    }
+    E[[i]]=step
+  }
+  # get dendogram xy position
+  nn=nrow(A) + 1
+  xaxis=c()
+  yaxis=hc$height
+  tp=rep(0,2)
+  mm=match(1:length(hc$order),hc$order)
+  for(i in 1:(nn-1)) {
+    ai=A[i,1]
+    if(ai < 0){
+      tp[1]=mm[-ai]
+    } else {
+      tp[1]=xaxis[ai]
+    }
+    ai=A[i,2]
+    if(ai < 0){
+      tp[2]=mm[-ai]
+    } else {
+      tp[2]=xaxis[ai]
+    }
+    xaxis[i]=mean(tp)
+  }
+  xyaxis=data.frame(xaxis=xaxis,yaxis=yaxis,stringsAsFactors=FALSE)
+  # return res
+  C=as.numeric(C)
+  D=as.numeric(D)
+  E=as.numeric(E)
+  N=hc$merge>0
+  N=N[,1]+N[,2]
+  obj<-list(nest=nest,compids=B,labels=hc$labels,parent=D,leafdist=C,
+            rootdist=E,height=hc$height,nnest=N, xyaxis=xyaxis)
+  #---get unified edges
+  N<-nrow(hc$merge);nn<-N+1
+  hcEdges<-NULL
+  eLength<-NULL
+  junk<-sapply(1:N,function(i){
+    y1<-hc$merge[i,1]
+    y2<-hc$merge[i,2]
+    if(y1>0){
+      l1<-hc$height[i] - hc$height[y1]
+    } else {
+      l1<-hc$height[i]
+    }
+    if(y2>0){
+      l2<-hc$height[i] - hc$height[y2]
+    } else {
+      l2<-hc$height[i]
+    }    
+    tp<-cbind(rbind(c(i,y1),c(i,y2)),c(l1,l2))
+    hcEdges<<-rbind(hcEdges,tp)
+    NULL
+  })
+  colnames(hcEdges)<-c("parentNode","childNode","edgeLength")
+  hcEdges<-data.frame(hcEdges,stringsAsFactors=FALSE)
+  hcEdges$parentHeight<-obj$height[hcEdges$parentNode]
+  #---get unified nodes
+  hcl<-data.frame(node=hc$labels,mergeId=-c(1:nn),hcId=c(1:nn), type="leaf",stringsAsFactors=FALSE)
+  hcn<-data.frame(node=paste("N",c(1:N),sep=""),mergeId=c(1:N),hcId=c(1:N),type="nest",stringsAsFactors=FALSE)
+  hcNodes<-rbind(hcl,hcn)
+  hcEdges$parentNode<-hcNodes$node[match(hcEdges$parentNode,hcNodes$mergeId)]
+  hcEdges$childNode<-hcNodes$node[match(hcEdges$childNode,hcNodes$mergeId)]
+  #---update and return
+  obj$hcNodes<-hcNodes;obj$hcEdges<-hcEdges
+  return(obj)
+}
 

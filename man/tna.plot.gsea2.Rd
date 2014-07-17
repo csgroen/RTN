@@ -9,14 +9,22 @@ This function takes a TNA object and plots the two-tailed GSEA results for indiv
 }
 
 \usage{
-tna.plot.gsea2(object, regulon.order="size", ntop=NULL, tfs=NULL, filepath=".", ylimPanels=c(-1.0,3.0,-0.5,0.5), 
-heightPanels=c(1.5,0.7,5.0), width=5, height=4, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
-xlab="Position in the ranked list of genes", labPheno="tna_test", alpha=1.0, sparsity=10, autoformat=TRUE, ...)
+tna.plot.gsea2(object, labPheno="tna", file=labPheno, filepath=".", regulon.order="size", 
+ntop=NULL, tfs=NULL, ylimPanels=c(-1.0,3.0,-0.5,0.5), heightPanels=c(2.0,0.8,5.0), width=3.5, 
+height=3.8, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
+xlab="Position in the ranked list of genes", alpha=1.0, 
+sparsity=10, autoformat=TRUE, ...)
 }
 
 \arguments{
 \item{object}{
 an object of class 'TNA' \code{\link[RTN:TNA-class]{TNA-class}}.
+}
+\item{file}{
+a character string naming a file.
+}
+\item{filepath}{
+a single character value specifying where to store GSEA2 figures.
 }
 \item{regulon.order}{
 a single character value specifying whether regulons should be ordered by 'size', 
@@ -27,9 +35,6 @@ a single integer value specifying how many regulons of top significance will be 
 }
 \item{tfs}{
 an optional vector with transcription factor identifiers (this option overrides the 'ntop' argument).
-}
-\item{filepath}{
-a single character value specifying where to store GSEA2 figures.
 }
 \item{ylimPanels}{
 a numeric vector of length=4 specifying y coordinates ranges of the 1st and 3th plots 
@@ -70,6 +75,10 @@ other arguments used by the function pdf.
 
 \author{
 Mauro Castro
+}
+
+\seealso{
+\code{\link[RTN:tna.gsea2]{tna.gsea2}}
 }
 
 \examples{

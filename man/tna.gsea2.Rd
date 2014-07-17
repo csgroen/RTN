@@ -69,6 +69,7 @@ Mauro Castro
 
 \seealso{
 \code{\link[RTN:TNA-class]{TNA-class}}
+\code{\link[RTN:tna.plot.gsea2]{tna.plot.gsea2}}
 }
 
 \examples{

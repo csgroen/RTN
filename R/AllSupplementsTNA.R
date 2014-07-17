@@ -9,8 +9,8 @@
 
 ##This function computes observed and permutation-based scores associated 
 ##with a gene set enrichment analysis for a collection of regulons.
-gsea1tna <- function(listOfRegulons, phenotype, exponent=1, nPermutations=1000, 
-                     minRegulonSize=15, verbose=TRUE) {	 
+gsea1tna <- function(listOfRegulons, phenotype, exponent=1, 
+                     nPermutations=1000,verbose=TRUE) {	 
   ##convert names to integers if parallel  
   b1<-"package:snow" %in% search()
   b2<-tryCatch({
@@ -23,41 +23,21 @@ gsea1tna <- function(listOfRegulons, phenotype, exponent=1, nPermutations=1000,
   }, error=function(e){ FALSE 
   })
   isPar <- b1 && b2
-#   if(isPar){
-#     intnames<-c(1:length(phenotype))
-#     names(intnames)<-names(phenotype)
-#     names(phenotype)<-intnames[names(phenotype)]
-#     for(i in names(listOfRegulons)){
-#       listOfRegulons[[i]]<-as.integer(intnames[listOfRegulons[[i]]])
-#     }    
-#   }
-  #OBS:names should be provided as integer values
+  
+  #OBS1:names provided as integer values!
+  #OBS2:max/min sizes checked in the previous functions!
   pheno.names <- as.integer(names(phenotype))
-  ##tag the gene sets that can be used in the analysis, i.e. those 
-  ##that are smaller than the size of the gene list and that have more 
-  ##than 'minRegulonSize' elements that can be found in the phenotype	
   nRegulons <- length(listOfRegulons)
-  tagRegulons <- rep(FALSE, nRegulons)
-  tagRegulons[which(unlist(lapply(listOfRegulons, length)) < 
-    length(phenotype))] <- TRUE
-  tagRegulons[which(unlist(lapply(lapply(listOfRegulons, 
-    intersect, y=pheno.names), length)) < minRegulonSize)] <- FALSE
-  ##check that there are actually some gene sets that pass the max 
-  ##and min cutoffs
-  n.tagRegulons <- sum(tagRegulons)
-  if(n.tagRegulons == 0) 
-    warning(paste("There are no gene sets in your collection",
-                  " that pass the cutoffs on size", sep=""))
-  if(n.tagRegulons > 0) {
+  if(nRegulons > 0) {
     ##Generate a matrix to store the permutation-based scores, with 
     ##one row for each gene set (that has been tagged) and one column 
     ##for each permutation	
-    scoresperm <- matrix(rep(0, (nPermutations * n.tagRegulons)), nrow=n.tagRegulons)
-    rownames(scoresperm) <- names(listOfRegulons)[which(tagRegulons)]
+    scoresperm <- matrix(rep(0, (nPermutations * nRegulons)), nrow=nRegulons)
+    rownames(scoresperm) <- names(listOfRegulons)
     ##Generate a vector to store the experimental scores
     ##one entry for each gene set (that has been tagged)
-    scoresObserved <- rep(0, n.tagRegulons)
-    names(scoresObserved) <- names(listOfRegulons)[which(tagRegulons)]
+    scoresObserved <- rep(0, nRegulons)
+    names(scoresObserved) <- names(listOfRegulons)
     ##Compute the scores	
     ##create permutation gene list
     perm.gL <- sapply(1:nPermutations, function(n) pheno.names[
@@ -65,28 +45,28 @@ gsea1tna <- function(listOfRegulons, phenotype, exponent=1, nPermutations=1000,
     perm.gL<-cbind(pheno.names,perm.gL)
     ##check if package snow has been loaded and a cluster object 
     ##has been created for HTSanalyzeR
-    if(isPar && n.tagRegulons>1) {
+    if(isPar && nRegulons>1) {
       if(verbose)cat("-Performing GSEA (parallel version)...\n")
-      if(verbose)cat("--For", length(listOfRegulons[which(tagRegulons)]), "regulons...\n")      
-      scores <- gseaScoresBatchParallel4RTN(geneList=phenotype, geneNames.perm = perm.gL,
-                                        collectionOfGeneSets=listOfRegulons[which(tagRegulons)],
-                                        exponent=exponent,nPermutations=nPermutations)
-      sapply(1:n.tagRegulons, function(i){
+      if(verbose)cat("--For", length(listOfRegulons), "regulons...\n")      
+      scores <- gseaScoresBatchParallel4RTN(geneList=phenotype, geneNames.perm=perm.gL,
+                                        collectionOfGeneSets=listOfRegulons,exponent=exponent,
+                                        nPermutations=nPermutations)
+      sapply(1:nRegulons, function(i){
         scoresperm[i,]<<-unlist(scores["scoresperm",i])
         scoresObserved[i]<<-unlist(scores["scoresObserved",i])
         NULL
       })
     } else {
       if(verbose) cat("-Performing gene set enrichment analysis...\n")
-      if(verbose) cat("--For", length(listOfRegulons[which(tagRegulons)]), "regulons...\n")
+      if(verbose) cat("--For", length(listOfRegulons), "regulons...\n")
       if(verbose) pb <- txtProgressBar(style=3)
-      for(i in 1:n.tagRegulons) {
+      for(i in 1:nRegulons) {
         scores <- gseaScoresBatch4RTN(geneList=phenotype, geneNames.perm=perm.gL, 
-                                  geneSet=listOfRegulons[[which(tagRegulons)[i]]],
-                                  exponent=exponent, nPermutations=nPermutations)
+                                  geneSet=listOfRegulons[[i]],exponent=exponent,
+                                  nPermutations=nPermutations)
         scoresObserved[i] <- scores$scoresObserved
         scoresperm[i,] <- scores$scoresperm
-        if(verbose) setTxtProgressBar(pb, i/n.tagRegulons)
+        if(verbose) setTxtProgressBar(pb, i/nRegulons)
       }	
       if(verbose) close(pb)
     }
@@ -98,7 +78,8 @@ gsea1tna <- function(listOfRegulons, phenotype, exponent=1, nPermutations=1000,
 }
 
 ##This function computes observed and permutation-based scores 
-gsea2tna <- function(listOfRegulons, phenotype, exponent=1, nPermutations=1000, verbose1=TRUE, verbose2=TRUE) {   
+gsea2tna <- function(listOfRegulons, phenotype, exponent=1, nPermutations=1000, 
+                     verbose1=TRUE, verbose2=TRUE) {   
   ##convert names to integers if parallel  
   b1<-"package:snow" %in% search()
   b2<-tryCatch({
@@ -112,12 +93,10 @@ gsea2tna <- function(listOfRegulons, phenotype, exponent=1, nPermutations=1000, 
   })
   isPar <- b1 && b2
 
-  #OBS:names should be provided as integer values
+  #OBS1:names provided as integer values!
+  #OBS2:max/min sizes checked in the previous functions!
   pheno.names <- as.integer(names(phenotype))
   nRegulons <- length(listOfRegulons)
-  if(nRegulons == 0) 
-    warning(paste("There are no gene sets in your collection",
-                  " that pass the cutoffs on size", sep=""))
   if(nRegulons > 0){
     ##Generate a matrix to store the permutation-based scores, with 
     ##one row for each gene set (that has been tagged) and one column 
@@ -648,22 +627,27 @@ hyperGeoTest4RTN <- function(geneSet, universe, hits) {
 
 #--------------------------------------------------------------------
 #The next 3 functions have being extracted from HTSanalyzeR
-#due to a compatibility issue between igraph/igraph0 versions!
-#...in HTSanalyzeR, the dependency of igraph was changed to igraph0 
-#...to adapt to the change in BioNet. However, RTN requires the new
-#...igraph version and, as result, no other HTSanalyzeR function is
-#...required.
+#due to compatibility issues!
 #--------------------------------------------------------------------
 ##This function computes enrichment scores for GSEA, running score and 
 ##position of hits for a gene set.
-gseaScores4RTN <- function(geneList, geneSet, exponent=1, mode="score", geneSetMode=NULL) {
-  ##The geneSet should be a subset of the gene universe, i.e. we keep 
+gseaScores4RTN <- function(geneList, geneSet, exponent=1, mode="score") {
+  ##geneSet can either be a character vector with gene ids, or a named integer
+  ##vector with additional information (e.g. pos/neg targets)
+  if( is.character(geneSet) || is.null(names(geneSet)) ){
+    geneSetType<-rep(1,length(geneSet))
+    names(geneSetType)<-geneSet
+  } else {
+    geneSetType<-geneSet
+    geneSet<-names(geneSet)
+  }
+  ##the geneSet should be a subset of the gene universe, i.e. we keep 
   ##only those element of the gene set that appear in the geneList		
   geneSet<-intersect(names(geneList), geneSet)
-  ##Compute the size of the gene set and of the genelist	
+  ##compute the size of the gene set and of the genelist	
   nh <- length(geneSet)
   N <- length(geneList)
-  ##Initialize the ES, runningES and the Phit and Pmiss by position 
+  ##initialize the ES, runningES and the Phit and Pmiss by position 
   ##(the actual values of Phit and Pmiss are actually cumulative sums 
   ##of these 'by position' values)	
   ES <- 0
@@ -671,43 +655,41 @@ gseaScores4RTN <- function(geneList, geneSet, exponent=1, mode="score", geneSetM
   Pmiss <- rep(0, N)
   runningES <- rep(0, N)
   hits <- rep(FALSE, N)
-  hitsmode <- rep(0, N)
+  hitsType <- rep(0, N)
   ##Stop if the geneSet is larger than the gene universe	
   if(nh > N) {
     stop("NOTE: gene set is larger than gene list!")
   } else {
-    ##Compute the positions of the hits in the geneList (0 if there 
+    ##compute the positions of the hits in the geneList (0 if there 
     ##is no match, 1 if there is a match)	
     hits[which(!is.na(match(names(geneList), geneSet)))] <- TRUE
-    if(!is.null(geneSetMode)){
-      hitsmode[which(!is.na(match(names(geneList), names(geneSetMode[geneSetMode>0]))))] <-  1
-      hitsmode[which(!is.na(match(names(geneList), names(geneSetMode[geneSetMode<0]))))] <- -1
-    }
-    ##If sum(hits)=0 then there is no match between geneList and 
+    ##same as hits, but including mode information is available
+    hitsType[which(!is.na(match(names(geneList), names(geneSetType[geneSetType>0]))))] <-  1
+    hitsType[which(!is.na(match(names(geneList), names(geneSetType[geneSetType<0]))))] <- -1
+    ##if sum(hits)=0 then there is no match between geneList and 
     ##geneSet, and all scores stay at 0.		
-    if(sum(hits)!=0) {
-      ##Fill the Phit by position		
+    if(sum(hits)!=0){
+      ##fill the Phit by position		
       Phit[which(hits)]<-abs(geneList[which(hits)])^exponent
       NR=sum(Phit)
-      ##Fill the Pmiss by positions			
+      ##fill the Pmiss by positions			
       Pmiss[which(!hits)]<-1/(N-nh)
-      ##Do the cumulative sums	and compute the runningES		
+      ##do the cumulative sums	and compute the runningES		
       Phit=cumsum(Phit/NR)
       Pmiss=cumsum(Pmiss)
       runningES<-Phit-Pmiss
-      ##Compute the maximal (positive) and minimal (or maximal 
+      ##compute the maximal (positive) and minimal (or maximal 
       ##negative) values of the ES, and choose which one is kept			
       ESmax<-max(runningES)
       ESmin<-min(runningES)
       ES<-ifelse(abs(ESmin)>abs(ESmax), ESmin, ESmax)
     }
   }
-  ##Return the relevant information according to mode  	
+  ##return the relevant information according to mode  	
   if(mode=="score"){
     return(ES)
   } else if(mode=="graph"){
-    if(!is.null(geneSetMode))hits=hitsmode
-    return(list("enrichmentScore"=ES, "runningScore"=runningES, "positions"=as.integer(hits)))
+    return(list("enrichmentScore"=ES, "runningScore"=runningES, "positions"=hitsType))
   }
 }
 ##------------------------------------------------------------------------------

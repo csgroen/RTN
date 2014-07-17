@@ -54,7 +54,7 @@ avs.plot2<-function(object, what="evse", fname=what, width=14, height=2.5,
     stats<-object@results$stats[[what]]
     ucounts<-object@results$counts[[what]]
     avsplot2(stats=stats,ucounts=ucounts,fname=fname, height=height, width=width, rmargin=rmargin, 
-             bxseq=bxseq, ylab=ylab, xlab=xlab, labe=toupper(what),decreasing=decreasing)
+             bxseq=bxseq, ylab=ylab, xlab=xlab, label=toupper(what),decreasing=decreasing)
   } else {
     warning(paste("NOTE:",toupper(what),"results not available!"),call. = FALSE)
   }
@@ -100,7 +100,7 @@ avsplot1<-function(mtally,nulldist,fname,ylab, xlab, nsplit, maxy,
 #-------------------------------------------------------------------------
 avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1, 
                       bxseq=seq(-4,8,2),ylab=ylab, xlab="Clusters of risk-associated and linked SNPs",
-                      labe="EVSE",decreasing=TRUE){
+                      label="EVSE",decreasing=TRUE){
   #---shortcut to set left margin
   lmargin=0.3
   #---universeCounts
@@ -125,7 +125,6 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
   pvalue<-stats$pvalue
   escore<-stats$escore
   ci<-stats$ci
-  
   #----sort by score (untie with mtally)
   tp<-colSums(mtally);tp<-tp/sum(tp)
   idx<-sort.list(escore+tp,decreasing=!decreasing)
@@ -134,7 +133,6 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
   nulldist<-nulldist[,idx,drop=FALSE]
   mtl<-mtl[idx]
   pvalue<-pvalue[idx]
-  
   #----set labels on 1 or 2 cols
   cnames<-colnames(nulldist)
   ccnames<-strsplit(cnames, ".", fixed=TRUE)
@@ -145,7 +143,6 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
   } else {
     cctype<-FALSE
   }
-  
   #---start pdf
   pdf(file=paste(fname,".pdf",sep=""),width=width,height=height)
   nc<-ncol(nulldist)
@@ -161,7 +158,7 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
   boxplot(nulldist, horizontal=TRUE, axes=FALSE, add=TRUE, boxwex=0.7, range=1.5, pch="|", 
           cex=0.6, lty=1, lwd=0.75, at=at.y, outline=FALSE)
   axis(side=3,at=bxseq[-1], labels=bxseq[-1], cex.axis=0.7, padj=0.5, hadj=0.5, las=1, lwd=1.0)
-  tx<-paste("Enrichment\nscore (",labe,")",sep="")
+  tx<-paste("Enrichment\nscore (",label,")",sep="")
   mtext(tx, side=3, line=2, cex=0.75, las=1, adj=0, at=-0.5)
   mtext("Bonferroni", side=3, line=1.2, cex=0.75, las=1, col="gray75", adj=0, at=-0.5)
   #----add stats
@@ -217,7 +214,7 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
 # #-------------------------------------------------------------------------
 # avsplot2OLD<-function(stats,vSet, fname="vseplot",height=2, width=14, rmargin=1, 
 #                       bxseq=seq(-4,8,2),bxsp=1, xlab="Clusters of risk-associated and linked SNPs",
-#                       labe="EVSE",decreasing=TRUE){
+#                       label="EVSE",decreasing=TRUE){
 #   #---clustersz
 #   clustersz<-unlist(sapply(1:length(vSet),function(i){
 #     unlist(lapply(vSet[[i]],length))
@@ -258,7 +255,7 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
 #           cex=0.6, lty=1, lwd=0.75, at=at.y, outline=FALSE)
 #   #bxseq[1]=NA
 #   axis(side=3,at=bxseq[-1], labels=bxseq[-1], cex.axis=0.7, padj=0.5, hadj=0.5, las=1, lwd=1.0)
-#   tx<-paste("Enrichment\nscore (",labe,")",sep="")
+#   tx<-paste("Enrichment\nscore (",label,")",sep="")
 #   mtext(tx, side=3, line=2, cex=0.75, las=1, adj=0, at=-0.5)
 #   mtext("Bonferroni", side=3, line=1.2, cex=0.75, las=1, col="gray75", adj=0, at=-0.5)
 #   #----add stats

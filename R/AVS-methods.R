@@ -115,7 +115,6 @@ setMethod(
     annotation<-tnai.checks(name="annotation",para=annotation)
     tnai.checks(name="maxgap",para=maxgap)
     tnai.checks(name="pValueCutoff",para=pValueCutoff)
-    #tnai.checks(name="pAdjustMethod",para=pAdjustMethod)
     tnai.checks(name="boxcox",para=boxcox)
     tnai.checks(name="lab",para=lab)
     tnai.checks(name="glist",para=glist)
@@ -187,9 +186,6 @@ setMethod(
     
     #get universe counts (marker and gene counts)
     universeCounts<-getUniverseCounts1(vSet,annotation,maxgap)
-    if(is.matrix(object@results$counts$vse)){
-      universeCounts[,2]<-object@results$counts$vse[,2]+universeCounts[,2]
-    }
     object@results$counts$vse<-universeCounts
     
     ##-----update status and return results
@@ -213,7 +209,6 @@ setMethod(
     tnai.checks(name="gxdata",para=gxdata)
     tnai.checks(name="maxgap",para=maxgap)
     tnai.checks(name="pValueCutoff",para=pValueCutoff)
-    #tnai.checks(name="pAdjustMethod",para=pAdjustMethod)
     tnai.checks(name="boxcox",para=boxcox)
     tnai.checks(name="lab",para=lab)
     glist<-tnai.checks(name="glist",para=glist)
@@ -398,9 +393,6 @@ setMethod(
     
     #get universe counts (marker and gene counts)
     universeCounts<-getUniverseCounts2(vSet,annotation,maxgap)
-    if(is.matrix(object@results$counts$evse)){
-      universeCounts[,3]<-object@results$counts$evse[,3]+universeCounts[,3]
-    }
     object@results$counts$evse<-universeCounts
     
     ##-----update status and return results

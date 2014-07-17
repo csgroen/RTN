@@ -448,9 +448,7 @@ setMethod(
     } else {
       rgcs<-object@listOfRegulons
     }
-    rgcs<-lapply(rgcs, intersect, y=names(object@phenotype))
-    gs.size <- unlist(lapply(rgcs, length))
-    object@summary$rgc[,"above.min.size"]<-sum(gs.size>minRegulonSize)
+    
     ##-----stepFilter: use significant regulons inferred from MRA analysis
     if(!is.null(tfs)){
       if(sum(tfs%in%object@transcriptionFactors) > sum(tfs%in%names(object@transcriptionFactors) ) ){
@@ -476,28 +474,30 @@ setMethod(
       }
     }
     
-    ##-----get ordered phenotype
-    phenotype<-object@phenotype
-    if(orderAbsValue)phenotype<-abs(phenotype)
-    phenotype<-phenotype[order(phenotype,decreasing=TRUE)]
+    ##----count above min size (input)
+    gs.size<-unlist(lapply(rgcs, length))
+    object@summary$rgc[,"above.min.size"]<-sum(gs.size>minRegulonSize)
     
-    ##---reset names to integer values
-    rgcs<-lapply(rgcs, match, table=names(phenotype))
-    names(phenotype)<-1:length(phenotype)
+    ##-----filter 'rgcs' by 'minRegulonSize'
+    if(all(gs.size<minRegulonSize)){
+      tp<-" overlapped genes with the universe!\n The largest number of overlapped genes is: "
+      stop(paste("NOTE: no regulon has >= ", minRegulonSize, tp, max(gs.size), sep=""),call.=FALSE)
+    }
+    rgcs <- rgcs[which(gs.size >= minRegulonSize)]
     
     ##-----run gsea1
     GSEA1.results<-run.gsea1(
       listOfRegulons=rgcs,
-      phenotype=phenotype,
+      phenotype=object@phenotype,
       pAdjustMethod=object@para$gsea1$pAdjustMethod,
       pValueCutoff=object@para$gsea1$pValueCutoff,
-      nPermutations=object@para$gsea1$nPermutations, 
-      minRegulonSize=object@para$gsea1$minRegulonSize,
+      nPermutations=object@para$gsea1$nPermutations,
       exponent=object@para$gsea1$exponent,
+      orderAbsValue=object@para$gsea1$orderAbsValue,
       verbose=verbose
     )
-    GSEA1.results<-data.frame(Regulon=rownames(GSEA1.results),GSEA1.results,stringsAsFactors=FALSE)
-    ##-----if orderAbsValue, remove eventual regulons associated with the noise tail
+    
+    ##-----if orderAbsValue, check rounding problems
     if(orderAbsValue){
       idx<-GSEA1.results$Observed.Score<=0
       GSEA1.results$Pvalue[idx]<-1
@@ -580,10 +580,9 @@ setMethod(
     listOfRegulonsAndMode<-listOfRegulonsAndMode[tfs]
     
     ##-----check regulon size
-    gs.size <- sapply(names(listOfRegulonsAndMode), function(reg){
-      tp<-listOfRegulonsAndMode[[reg]]
-      min(sum(tp>0),sum(tp<0))
-    })
+    gs.size <- unlist(lapply(listOfRegulonsAndMode, function(reg){
+      min(sum(reg>0),sum(reg<0))
+    }))
     object@summary$rgc[,"above.min.size"]<-sum(gs.size>minRegulonSize)
     ##-----stop when no subset passes the size requirement
     if(all(gs.size<minRegulonSize)){
@@ -591,25 +590,12 @@ setMethod(
       stop(paste("NOTE: no partial regulon has minimum >= ", minRegulonSize, tp, max(gs.size), sep=""))
     }
     ##-----get filtered list
-    idx <- which(gs.size >= minRegulonSize)
-    gs.size <- gs.size[idx]
-    listOfRegulonsAndMode <- listOfRegulonsAndMode[idx]
+    listOfRegulonsAndMode<-listOfRegulonsAndMode[which(gs.size>=minRegulonSize)]
     tfs<-tfs[tfs%in%names(listOfRegulonsAndMode)]
     
-    ##-----get ordered phenotype
-    phenotype<-object@phenotype
-    phenotype<-phenotype[order(phenotype,decreasing=TRUE)]
-    
-    ##---reset names to integer values
-    lapply(names(listOfRegulonsAndMode), function(i){
-      reg<-listOfRegulonsAndMode[[i]]
-      names(listOfRegulonsAndMode[[i]])<<-match(names(reg),names(phenotype))
-      NULL
-    })
-    names(phenotype)<-1:length(phenotype)
-    
     #possible check-point for cmap!
-    #names(phenotype)<-sample(names(phenotype))
+    phenotype<-object@phenotype
+    #names(phenotype)<-sample(names(object@phenotype))
     
     ##-----run gsea2
     GSEA2.results<-run.gsea2(
@@ -622,37 +608,38 @@ setMethod(
       verbose=verbose
     )
     
-    ##----run cmap on downstream tnet
+    ##----run cmap on downstream tnet (Experimental!)
     
     #get observed enrichment scores for the input regulons
     dfpheno<-GSEA2.results$differential[,"Observed.Score"]
     names(dfpheno)<-rownames(GSEA2.results$differential)
     dfpheno<-dfpheno[GSEA2.results$differential[,"Adjusted.Pvalue"]<pValueCutoff]
-    if(length(dfpheno)>0 && length(tfs)>1){
-      #get the expected phenotype on the observed tnet structure
-      idx<-c(names(dfpheno),setdiff(names(listOfRegulonsAndMode),names(dfpheno)))
-      tnet<-tnet[idx,names(dfpheno),drop=FALSE]
-      tnet<-tnet[rowSums(abs(tnet))>0,,drop=FALSE]
-      expectedEffect<-tnet
+    #get the expected phenotype on the observed tnet structure
+    idx<-c(names(dfpheno),setdiff(names(listOfRegulonsAndMode),names(dfpheno)))
+    tnet<-tnet[idx,names(dfpheno),drop=FALSE]
+    expectedEffect<-tnet[rowSums(abs(tnet))>0,,drop=FALSE]
+    if(nrow(expectedEffect)>0){
       for(i in 1:nrow(expectedEffect)){
         tp<-dfpheno/abs(dfpheno);tp[is.nan(tp)]=0
         expectedEffect[i,]<-expectedEffect[i,]*tp
       }
       #get observed enrichment score for all regulons
-      obscore<-run.tna.cmap(listOfRegulonsAndMode[rownames(expectedEffect)], phenotype, exponent)
-      obscore<-round(obscore,4)
+      obscore<-run.tna.cmap(listOfRegulonsAndMode, phenotype, exponent)
       #check consistency of downstream effects
       dseffect<-list()
-      sapply(colnames(expectedEffect),function(reg){
+      cn<-colnames(expectedEffect)
+      rn<-rownames(expectedEffect)
+      sapply(cn,function(reg){
         expeffect<-expectedEffect[,reg]
-        expeffect<-expeffect[expeffect!=0]
+        idx<-which(expeffect!=0)
+        expeffect<-expeffect[idx]
+        obs<-obscore[rn[idx]]
         expeffect<-expeffect/abs(expeffect)
-        obs<-obscore[names(expeffect)]
         obseffect<-obs/abs(obs)
         obseffect[is.nan(obseffect)]=0
-        dseffect[[reg]]<<-rbind(expected.effect=expeffect,
-                                observed.effect=obseffect,
-                                observed.score=obs)
+        res<-rbind(expected.effect=expeffect,observed.effect=obseffect,observed.score=obs)
+        colnames(res)<-rn[idx]
+        dseffect[[reg]]<<-res
         NULL
       })
       GSEA2.results$dseffect<-dseffect
@@ -994,8 +981,8 @@ setMethod(
 setMethod(
   "tna.graph",
   "TNA",
-  function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", 
-           amapCutoff=NULL, mask=FALSE){
+  function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", amapCutoff=NULL, 
+           mask=FALSE){
     # chech igraph compatibility
     b1<-"package:igraph0" %in% search()
     b2<- "igraph0" %in%  loadedNamespaces()
@@ -1447,13 +1434,6 @@ data.integration<-function(object, verbose){
 run.overlap <- function(listOfRegulons, universe, pAdjustMethod="BH", 
                         pValueCutoff=0.05, minRegulonSize=15, 
                         verbose=TRUE) {
-  ##-----check arguments
-  tnai.checks("listOfRegulons",listOfRegulons)
-  tnai.checks("universe",universe)
-  tnai.checks("pAdjustMethod",pAdjustMethod)
-  tnai.checks("pValueCutoff",pValueCutoff)
-  tnai.checks("minRegulonSize",minRegulonSize)
-  tnai.checks("verbose",verbose)
   ##-----filter 'listOfRegulons' by 'minRegulonSize'
   gs.size <- unlist(
     lapply(lapply(listOfRegulons, intersect, y = universe), length)
@@ -1498,47 +1478,32 @@ run.overlap <- function(listOfRegulons, universe, pAdjustMethod="BH",
 ##regulons (with multiple hypothesis testing correction).
 run.gsea1 <- function(listOfRegulons, phenotype, pAdjustMethod="BH", 
                      pValueCutoff=0.05, nPermutations=1000, 
-                     minRegulonSize=15, exponent=1, verbose=TRUE) {
-  ##-----check arguments
-  tnai.checks("listOfRegulons",listOfRegulons)
-  tnai.checks("phenotype",phenotype)
-  tnai.checks("pAdjustMethod",pAdjustMethod)
-  tnai.checks("pValueCutoff",pValueCutoff)
-  tnai.checks("nPermutations",nPermutations)
-  tnai.checks("minRegulonSize",minRegulonSize)
-  tnai.checks("exponent",exponent)
-  tnai.checks("verbose",verbose)
-  ##-----filter 'listOfRegulons' by 'minRegulonSize'
-  gs.size <- unlist(
-    lapply(lapply(listOfRegulons, intersect, y = names(phenotype)), length)
-  )
-  max.size <- max(gs.size)
-  ##-----stop when no gene set passes the size requirement
-  if(all(unlist(lapply(listOfRegulons,length))==0)){
-    tp<-" overlapped genes with the universe!\n The largest number of overlapped genes is: "
-    stop(paste("NOTE: no regulon has >= ", minRegulonSize, tp, max.size, sep=""),call.=FALSE)
-  }
-  ##-----get filtered list
-  gs.id <- which(gs.size >= minRegulonSize)
-  gs.size <- gs.size[gs.id]
-  listOfRegulons <- listOfRegulons[gs.id]
+                     exponent=1, orderAbsValue=TRUE, verbose=TRUE) {
+  
+  ##-----get ordered phenotype
+  if(orderAbsValue)phenotype<-abs(phenotype)
+  phenotype<-phenotype[order(phenotype,decreasing=TRUE)]
+  
+  ##-----reset names to integer values
+  listOfRegulons<-lapply(listOfRegulons, match, table=names(phenotype))
+  names(phenotype)<-1:length(phenotype)
+  
   ##-----calculate enrichment scores for all regulons
   test.collection<-list()
   if(length(listOfRegulons) > 0){
-    test.collection <- gsea1tna(listOfRegulons, 
-                                phenotype=phenotype,exponent=exponent,
-                                nPermutations=nPermutations, 
-                                minRegulonSize=minRegulonSize,verbose=verbose)
+    test.collection <- gsea1tna(listOfRegulons,phenotype=phenotype,exponent=exponent,
+                                nPermutations=nPermutations,verbose=verbose)
   } else {
     test.collection<-list(Observed.scores=NULL, Permutation.scores=NULL)
   }
+  
   ##-----compute pvals
   if(length(test.collection$Observed.scores) > 0) {
+    gs.size <- unlist(lapply(listOfRegulons, length))
     test.pvalues.collection <- tna.permutation.pvalues(
       permScores = test.collection$Permutation.scores,
       dataScores = test.collection$Observed.scores)  	
-    gsea.adjust.pval <- p.adjust(test.pvalues.collection, 
-                                 method = pAdjustMethod)
+    gsea.adjust.pval <- p.adjust(test.pvalues.collection, method = pAdjustMethod)
     GSEA1.results <- cbind(gs.size, test.collection$Observed.scores,
                           test.pvalues.collection, gsea.adjust.pval)			
     colnames(GSEA1.results) <- c("Regulon.Size", "Observed.Score", "Pvalue", "Adjusted.Pvalue")
@@ -1546,10 +1511,12 @@ run.gsea1 <- function(listOfRegulons, phenotype, pAdjustMethod="BH",
     GSEA1.results <- matrix(, nrow=0, ncol=4)
     colnames(GSEA1.results) <- c("Regulon.Size", "Observed.Score", "Pvalue", "Adjusted.Pvalue")
   }
+  
   #-----format results 
   GSEA1.results[,"Observed.Score"]<-round(GSEA1.results[,"Observed.Score"],2)
   GSEA1.results[,"Pvalue"]<-signif(GSEA1.results[,"Pvalue"], digits=5)
   GSEA1.results[,"Adjusted.Pvalue"]<-signif(GSEA1.results[,"Adjusted.Pvalue"], digits=5)
+  GSEA1.results<-data.frame(Regulon=rownames(GSEA1.results),GSEA1.results,stringsAsFactors=FALSE)
   if(verbose)cat("-Gene set enrichment analysis complete \n\n")
   return( GSEA1.results ) 
 }
@@ -1561,6 +1528,18 @@ run.gsea1 <- function(listOfRegulons, phenotype, pAdjustMethod="BH",
 run.gsea2 <- function(listOfRegulonsAndMode, phenotype, pAdjustMethod="BH", 
                       pValueCutoff=0.05, nPermutations=1000, 
                       exponent=1, verbose=TRUE) {
+  
+  ##-----get ordered phenotype
+  phenotype<-phenotype[order(phenotype,decreasing=TRUE)]
+  
+  ##---reset names to integer values
+  lapply(names(listOfRegulonsAndMode), function(i){
+    reg<-listOfRegulonsAndMode[[i]]
+    names(listOfRegulonsAndMode[[i]])<<-match(names(reg),names(phenotype))
+    NULL
+  })
+  names(phenotype)<-1:length(phenotype)
+  
   ##-----calculate enrichment scores for all regulons
   test.collection.up<-list()
   test.collection.down<-list()
@@ -1575,8 +1554,8 @@ run.gsea2 <- function(listOfRegulonsAndMode, phenotype, pAdjustMethod="BH",
       names(tp[tp<0])
     })
     names(listOfRegulonsDown)<-names(listOfRegulonsAndMode)
-    gs.size.up <- unlist(lapply(lapply(listOfRegulonsUp, intersect, y = names(phenotype)), length))
-    gs.size.down <- unlist(lapply(lapply(listOfRegulonsDown, intersect, y = names(phenotype)), length))
+    gs.size.up <- unlist(lapply(listOfRegulonsUp, length))
+    gs.size.down <- unlist(lapply(listOfRegulonsDown, length))
     test.collection.up <- gsea2tna(listOfRegulonsUp, phenotype=phenotype,exponent=exponent,
                                    nPermutations=nPermutations, verbose1=verbose, verbose2=TRUE)
     test.collection.down <- gsea2tna(listOfRegulonsDown, phenotype=phenotype,exponent=exponent,
@@ -1637,16 +1616,6 @@ run.gsea2 <- function(listOfRegulonsAndMode, phenotype, pAdjustMethod="BH",
 run.synergy <- function(collectionsOfPairsR1R2, labpair, phenotype, pAdjustMethod="BH", 
                        pValueCutoff=0.05, minIntersectSize=1, nPermutations=1000, exponent=1, 
                        verbose=TRUE) {
-  ##check arguments
-  tnai.checks("listOfRegulonPairs",collectionsOfPairsR1R2)
-  tnai.checks("labpair",labpair)
-  tnai.checks("phenotype",phenotype)
-  tnai.checks("pAdjustMethod",pAdjustMethod)
-  tnai.checks("pValueCutoff",pValueCutoff)
-  tnai.checks(name="minIntersectSize",para=minIntersectSize)
-  tnai.checks("nPermutations",nPermutations)
-  tnai.checks("exponent",exponent)
-  tnai.checks("verbose",verbose)
   ##calculate enrichment scores
   regize<-sapply(1:length(collectionsOfPairsR1R2),function(i){
     unlist(lapply(collectionsOfPairsR1R2[[i]],length))
@@ -1685,17 +1654,6 @@ run.synergy <- function(collectionsOfPairsR1R2, labpair, phenotype, pAdjustMetho
 run.shadow <- function(collectionsOfPairsR1, collectionsOfPairsR2, labpair, phenotype, 
                        pAdjustMethod="BH", pValueCutoff=0.05, nPermutations=1000, 
                        minIntersectSize=1, exponent=1, verbose=TRUE) {
-  ##check arguments
-  tnai.checks("listOfRegulonPairs",collectionsOfPairsR1)
-  tnai.checks("listOfRegulonPairs",collectionsOfPairsR2)
-  tnai.checks("phenotype",phenotype)
-  tnai.checks("pAdjustMethod",pAdjustMethod)
-  tnai.checks("pValueCutoff",pValueCutoff)
-  tnai.checks("nPermutations",nPermutations)
-  tnai.checks(name="minIntersectSize",para=minIntersectSize)
-  tnai.checks("exponent",exponent)
-  tnai.checks("verbose",verbose)
-  tnai.checks("labpair",labpair)
   if(length(collectionsOfPairsR1)!=length(collectionsOfPairsR2)){
     stop("NOTE: 'collectionsOfPairsR1' and 'collectionsOfPairsR2' should have the same length!",call.=FALSE)
   }
@@ -1808,7 +1766,7 @@ run.shadow <- function(collectionsOfPairsR1, collectionsOfPairsR2, labpair, phen
 }
 
 ##------------------------------------------------------------------------------
-##CMAP for GSEA2
+##GSEA2 for CMAP
 run.tna.cmap <- function(listOfRegulonsAndMode, phenotype, exponent) {
   if(length(listOfRegulonsAndMode) > 0){
     phenotype<-phenotype[order(phenotype,decreasing=TRUE)]

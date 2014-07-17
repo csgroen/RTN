@@ -359,16 +359,28 @@ setMethod(
       query<-object@results$conditional$count
       for(nm in names(query)){
         qry<-query[[nm]]
-        qry<-qry[qry[,"IConstraint"]==0,-2,drop=FALSE]
-        qry<-qry[qry[,"RConstraint"]==0,-2,drop=FALSE]
+        qry<-qry[qry[,2 ]=="FALSE" | qry[,2 ]=="0",-2,drop=FALSE]
+        qry<-qry[qry[,2 ]=="FALSE" | qry[,2 ]=="0",-2,drop=FALSE]
         query[[nm]]<-qry
       }
-      if(what=="cdtrev")query<-cdtReverse(query,object@para$cdt$pAdjustMethod)
+      if(what=="cdtrev"){
+        query<-cdtReverse(query,object@para$cdt$pAdjustMethod)
+      } else {
+        query<-p.adjust.cdt(cdt=query,pAdjustMethod=object@para$cdt$pAdjustMethod, p.name="PvFET",adjp.name="AdjPvFET")
+        query<-p.adjust.cdt(cdt=query,pAdjustMethod=object@para$cdt$pAdjustMethod, p.name="PvKS",adjp.name="AdjPvKS",sort.name="PvKS")
+        query<-p.adjust.cdt(cdt=query,pAdjustMethod=object@para$cdt$pAdjustMethod, p.name="PvSNR",adjp.name="AdjPvSNR",global=FALSE)
+      }
       if(is.null(ntop)){
         for(nm in names(query)){
           qry<-query[[nm]]
-          qry<-qry[qry[,"AdjPvFET"] <= object@para$cdt$pValueCutoff,,drop=FALSE]
-          qry<-qry[qry[,"AdjPvKS"] <= object@para$cdt$pValueCutoff,,drop=FALSE]
+          b1 <- qry[,"AdjPvFET"] <= object@para$cdt$pValueCutoff
+          b2 <- qry[,"AdjPvKS"]  <= object@para$cdt$pValueCutoff
+          if(!is.null(qry$AdjPvSNR)){
+            b3 <- qry[,"AdjPvSNR"] <= object@para$cdt$pValueCutoff
+            qry<-qry[b1 & b2 & b3,,drop=FALSE]
+          } else {
+            qry<-qry[b1 & b2,,drop=FALSE]
+          }
           query[[nm]]<-qry
         }
       } else {
@@ -445,21 +457,62 @@ setMethod(
 )
 
 ##------------------------------------------------------------------------------
-##get graph from TNI 
+##get graph from TNI
+## experimental args:
+## mask: a logical value specifying to apply a mask on the 'amapFilter', keeping at least the 
+## ......best weighted edge (when verbose=TRUE) or not (when verbose=FALSE).
+## hcl: an hclust object with TF's IDs
+## overlap: overlapping nodes used for the Jaccard (options: 'all', 'pos', 'neg')
+
 setMethod(
   "tni.graph",
   "TNI",
-  function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", 
-           amapCutoff=NULL, mask=FALSE, ntop=NULL){
+  function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", amapCutoff=NULL, 
+           ntop=NULL, mask=FALSE, hcl=NULL, overlap="all", xlim=c(30,80,5), breaks=NULL, nquant=NULL){
     # chech igraph compatibility
     b1<-"package:igraph0" %in% search()
     b2<- "igraph0" %in%  loadedNamespaces()
     if( b1 || b2) {
       stop("\n\n ...conflict with 'igraph0': please use the new 'igraph' package!")
     }
+    ##-----check input arguments
     if(object@status["Preprocess"]!="[x]")stop("NOTE: input data need preprocessing!")
+    if(object@status["DPI.filter"]!="[x]")stop("NOTE: input data need dpi analysis!")
+    tnai.checks(name="tnet",para=tnet)
     tnai.checks(name="tni.gtype",para=gtype)
+    tnai.checks(name="minRegulonSize",para=minRegulonSize)
+    tnai.checks(name="tfs",para=tfs)
+    tnai.checks(name="amapFilter",para=amapFilter)
+    tnai.checks(name="amapCutoff",para=amapCutoff)
+    tnai.checks(name="mask",para=mask)
+    if(!is.null(hcl))gtype="amapDend"
+    if(gtype=="mmap" || gtype=="mmapDetailed")tnet="dpi"
+    if(tnet=="ref"){
+      tnet<-object@results$tn.ref
+    } else {
+      tnet<-object@results$tn.dpi
+    }
+    if(is.null(tfs)){
+      tfs<-object@transcriptionFactors
+      minsz<-colnames(tnet)[colSums(tnet!=0)>=minRegulonSize]
+      tfs<-tfs[tfs%in%minsz]
+    } else {
+      tfs<-as.character(tfs)
+      idx<-which(names(object@transcriptionFactors)%in%tfs | object@transcriptionFactors%in%tfs)
+      if(length(idx)==0)stop("NOTE: input 'tfs' contains no useful data!\n")
+      tfs<-object@transcriptionFactors[idx]
+    }
+    if(!is.null(hcl)){
+      if(!all(hcl$labels%in%tfs))
+        stop("all labels in the 'hclust' object should be listed as 'transcriptionFactors'!")
+      tfs<-tfs[tfs%in%hcl$labels]
+    }
+    
+    #-----------------------------------------
+    #-----------------------------------------
+    
     if(gtype=="mmap" || gtype=="mmapDetailed"){ #get modulatory maps
+      
       ##-----check input arguments
       if(object@status["Conditional"]!="[x]")stop("NOTE: input need conditional analysis!")
       #get tfs and modulators
@@ -468,15 +521,8 @@ setMethod(
       #cdt<-tni.get(object,what="cdt",ntop=5)
       testedtfs<-names(cdt)
       testedtfs<-object@transcriptionFactors[object@transcriptionFactors%in%testedtfs]
-      if(!is.null(tfs)){
-        tfs<-as.character(tfs)
-        idx<-which(names(object@transcriptionFactors)%in%tfs | object@transcriptionFactors%in%tfs)
-        tfs<-object@transcriptionFactors[idx]
-        testedtfs<-testedtfs[testedtfs%in%tfs]
-        if(length(testedtfs)==0){
-          stop("NOTE: input 'tfs' contains no useful data!\n")
-        }
-      }
+      testedtfs<-testedtfs[testedtfs%in%tfs]
+      if(length(testedtfs)==0)stop("NOTE: input 'tfs' contains no useful data!\n")
       modulators<-sapply(testedtfs,function(tf){
         rownames(cdt[[tf]])
       })
@@ -485,12 +531,6 @@ setMethod(
       othertfs<-object@transcriptionFactors
       othertfs<-othertfs[!othertfs%in%testedtfs]
       othertfs<-othertfs[othertfs%in%modulators]
-      ##-----get tnet
-      if(tnet=="ref"){
-        tnet<-object@results$tn.ref
-      } else if(tnet=="dpi"){
-        tnet<-object@results$tn.dpi
-      }
       #get adjmt
       tnet<-tnet[unique(c(testedtfs,setdiff(modulators,testedtfs))),testedtfs,drop=FALSE]
       mnet<-tnet;mnet[,]=0
@@ -512,137 +552,139 @@ setMethod(
         #1st level: a TF
         #2nd level: all MDs of a TF
         #3rd level: a graph
-        gList<-tni.mmap.detailed(object,mnet,testedtfs,ntop=ntop)
-        return(gList)
+        g<-tni.mmap.detailed(object,mnet,testedtfs,ntop=ntop)
       } else {
         #get mmap
         #tnet[,]<-0
         g<-tni.mmap(object,mnet,tnet,pvnet,othertfs,testedtfs,modulators)
-        return(g) 
       }
-    } else {
-      ##-----check input arguments
-      if(object@status["DPI.filter"]!="[x]")stop("NOTE: input data need dpi analysis!")
-      tnai.checks(name="tnet",para=tnet)
-      tnai.checks(name="tfs",para=tfs)
-      tnai.checks(name="minRegulonSize",para=minRegulonSize)
-      tnai.checks(name="amapFilter",para=amapFilter)
-      tnai.checks(name="amapCutoff",para=amapCutoff)
-      tnai.checks(name="mask",para=mask)
-      ##-----get tnet
-      if(tnet=="ref"){
-        tnet<-object@results$tn.ref
-      } else if(tnet=="dpi"){
-        tnet<-object@results$tn.dpi
-      }
-      if(is.null(tfs)){
-        tfs<-object@transcriptionFactors
-        minsz<-colnames(tnet)[colSums(tnet!=0)>=minRegulonSize]
-        tfs<-tfs[tfs%in%minsz]
-      } else {
-        tfs<-as.character(tfs)
-        idx<-which(names(object@transcriptionFactors)%in%tfs | object@transcriptionFactors%in%tfs)
-        if(length(idx)==0){
-          stop("NOTE: input 'tfs' contains no useful data!\n")
-        }
-        tfs<-object@transcriptionFactors[idx]
-      }
+      return(g)
+      
+    } else if(gtype=="rmap"){
+      
       tnet<-tnet[,tfs,drop=FALSE]
-      if(gtype=="rmap"){ #get regulatory maps
-        g<-tni.rmap(tnet)
-        #add annotation
-        if(.hasSlot(object, "annotation")){
-          if(nrow(object@annotation)>0)g<-att.mapv(g=g,dat=object@annotation,refcol=1)
-        }
-        #set target names if available
-        if(!is.null(V(g)$SYMBOL)){
-          g<-att.setv(g=g, from="SYMBOL", to='nodeAlias')
-        } else {
-          V(g)$nodeAlias<-V(g)$name
-        }
-        #set TF names
-        V(g)$tfs<-as.numeric(V(g)$name%in%tfs)
-        idx<-match(tfs,V(g)$name)
-        V(g)$nodeAlias[idx]<-names(tfs)
-        V(g)$nodeColor<-"black"
-        V(g)$nodeLineColor<-"black"
-        g<-att.setv(g=g, from="tfs", to='nodeShape',title="")
-        g$legNodeShape$legend<-c("nTF","TF")
-        g<-att.setv(g=g, from="tfs", to='nodeSize', xlim=c(20,50,1))
-        g<-att.setv(g=g, from="tfs", to='nodeFontSize',xlim=c(10,32,1))
-        #remove non-usefull legends
-        g<-remove.graph.attribute(g,"legNodeSize")
-        g<-remove.graph.attribute(g,"legNodeFontSize")
-        if(ecount(g)>0){
-          #set edge attr
-          g<-att.sete(g=g, from="modeOfAction", to='edgeColor',cols=c("#96D1FF","grey80","#FF8E91"), 
-                      title="ModeOfAction",categvec=-1:1)
-          g$legEdgeColor$legend<-c("Down","NA","Up")
-          E(g)$edgeWidth<-1.5
-          #map modeOfAction to node attribute (compute the average of the interactions)
-          el<-data.frame(get.edgelist(g),E(g)$modeOfAction,stringsAsFactors=FALSE)
-          nid<-V(g)$name
-          mdmode<-sapply(nid,function(id){
-            idx<-el[,2]==id
-            median(el[idx,3])
-          })
-          mdmode[V(g)$tfs==1]=NA
-          V(g)$medianModeOfAction<-as.integer(mdmode)
-          #assign mode to targets
-          g<-att.setv(g=g, from="medianModeOfAction", to='nodeColor',cols=c("#96D1FF","grey80","#FF8E91"), 
-                      title="ModeOfAction",categvec=-1:1,pal=1,na.col="grey80")
-          V(g)$nodeLineColor<-V(g)$nodeColor
-          g<-remove.graph.attribute(g,"legNodeColor")
-        }
-      } else { #get association maps
-        adjmt<-tni.amap(tnet)
-        #-------------------filter J.C.
-        if(mask){
-          #set a mask to keep at least the best weighted edge
-          mask<-sapply(1:ncol(adjmt),function(i){
-            tp<-adjmt[,i]
-            tp==max(tp)
-          })
-          nc<-ncol(mask);nr<-nrow(mask)
-          mask<-mask+mask[rev(nr:1),rev(nc:1)]>0
-        } else {
-          mask<-array(0,dim=dim(adjmt))
-        }
-        if(amapFilter=="phyper"){
-          #filter based phyper distribution (remove non-significant overlaps)
-          if(is.null(amapCutoff))amapCutoff=0.01
-          pvalue<-amapCutoff
-          pmat<-tni.phyper(tnet)
-          adjmt[pmat>pvalue & mask==0]=0
-        } else if(amapFilter=="quantile"){
-          #filter based on quantile distribution
-          if(is.null(amapCutoff))amapCutoff=0.75
-          jc<-as.integer(amapCutoff*100)+1
-          tp<-as.numeric(adjmt)
-          jc<-quantile(tp[tp>0],probs = seq(0, 1, 0.01), na.rm=TRUE)[jc]
-          adjmt[adjmt<jc & mask==0]=0
-        } else {
-          #custom filter
-          if(is.null(amapCutoff))amapCutoff=0
-          adjmt[adjmt<amapCutoff & mask==0]=0
-        }
-        #-------------------
-        g<-igraph::graph.adjacency(adjmt, diag=FALSE, mode="undirected", weighted=TRUE)
-        if(.hasSlot(object, "annotation")){
-          if(nrow(object@annotation)>0)g<-att.mapv(g=g,dat=object@annotation,refcol=1)
-        }
-        sz<-apply(tnet!=0, 2, sum)
-        idx<-match(V(g)$name,tfs)
-        V(g)$nodeAlias<-names(tfs)[idx]
-        V(g)$degree<-sz[idx]
-        #---set main attribs
-        if(ecount(g)>0)g<-att.sete(g=g, from="weight", to='edgeWidth', nquant=5, xlim=c(1,15,1),roundleg=2)
-        g<-att.setv(g=g, from="degree", to='nodeSize', xlim=c(20,100,1), nquant=5, roundleg=1)
-        V(g)$nodeFontSize<-20
+      g<-tni.rmap(tnet)
+      #add annotation
+      if(nrow(object@annotation)>0)g<-att.mapv(g=g,dat=object@annotation,refcol=1)
+      #set target names if available
+      if(!is.null(V(g)$SYMBOL)){
+        g<-att.setv(g=g, from="SYMBOL", to='nodeAlias')
+      } else {
+        V(g)$nodeAlias<-V(g)$name
       }
+      #set TF names
+      V(g)$tfs<-as.numeric(V(g)$name%in%tfs)
+      idx<-match(tfs,V(g)$name)
+      V(g)$nodeAlias[idx]<-names(tfs)
+      V(g)$nodeColor<-"black"
+      V(g)$nodeLineColor<-"black"
+      g<-att.setv(g=g, from="tfs", to='nodeShape',title="")
+      g$legNodeShape$legend<-c("nTF","TF")
+      g<-att.setv(g=g, from="tfs", to='nodeSize', xlim=c(20,50,1))
+      g<-att.setv(g=g, from="tfs", to='nodeFontSize',xlim=c(10,32,1))
+      #remove non-usefull legends
+      g<-remove.graph.attribute(g,"legNodeSize")
+      g<-remove.graph.attribute(g,"legNodeFontSize")
+      if(ecount(g)>0){
+        #set edge attr
+        g<-att.sete(g=g, from="modeOfAction", to='edgeColor',cols=c("#96D1FF","grey80","#FF8E91"), 
+                    title="ModeOfAction",categvec=-1:1)
+        g$legEdgeColor$legend<-c("Down","NA","Up")
+        E(g)$edgeWidth<-1.5
+        #map modeOfAction to node attribute (compute the average of the interactions)
+        el<-data.frame(get.edgelist(g),E(g)$modeOfAction,stringsAsFactors=FALSE)
+        nid<-V(g)$name
+        mdmode<-sapply(nid,function(id){
+          idx<-el[,2]==id
+          median(el[idx,3])
+        })
+        mdmode[V(g)$tfs==1]=NA
+        V(g)$medianModeOfAction<-as.integer(mdmode)
+        #assign mode to targets
+        g<-att.setv(g=g, from="medianModeOfAction", to='nodeColor',cols=c("#96D1FF","grey80","#FF8E91"), 
+                    title="ModeOfAction",categvec=-1:1,pal=1,na.col="grey80")
+        V(g)$nodeLineColor<-V(g)$nodeColor
+        g<-remove.graph.attribute(g,"legNodeColor")
+      }
+      return(g)
+      
+    } else if(gtype=="amap"){
+      
+      tnet<-tnet[,tfs,drop=FALSE]
+      adjmt<-tni.amap(tnet,overlap)
+      #-------------------filter J.C.
+      if(mask){
+        #set a mask to keep at least the best weighted edge
+        mask<-sapply(1:ncol(adjmt),function(i){
+          tp<-adjmt[,i]
+          tp==max(tp)
+        })
+        nc<-ncol(mask);nr<-nrow(mask)
+        mask<-mask+mask[rev(nr:1),rev(nc:1)]>0
+      } else {
+        mask<-array(0,dim=dim(adjmt))
+      }
+      if(amapFilter=="phyper"){
+        #filter based phyper distribution (remove non-significant overlaps)
+        if(is.null(amapCutoff))amapCutoff=0.01
+        pvalue<-amapCutoff
+        pmat<-tni.phyper(tnet)
+        adjmt[pmat>pvalue & mask==0]=0
+      } else if(amapFilter=="quantile"){
+        #filter based on quantile distribution
+        if(is.null(amapCutoff))amapCutoff=0.75
+        jc<-as.integer(amapCutoff*100)+1
+        tp<-as.numeric(adjmt)
+        jc<-quantile(tp[tp>0],probs = seq(0, 1, 0.01), na.rm=TRUE)[jc]
+        adjmt[adjmt<jc & mask==0]=0
+      } else {
+        #custom filter
+        if(is.null(amapCutoff))amapCutoff=0
+        adjmt[adjmt<amapCutoff & mask==0]=0
+      }
+      #-------------------
+      g<-igraph::graph.adjacency(adjmt, diag=FALSE, mode="undirected", weighted=TRUE)
+      if(nrow(object@annotation)>0)g<-att.mapv(g=g,dat=object@annotation,refcol=1)
+      sz<-apply(tnet!=0, 2, sum)
+      idx<-match(V(g)$name,tfs)
+      V(g)$nodeAlias<-names(tfs)[idx]
+      V(g)$degree<-sz[idx]
+      #---set main attribs
+      if(ecount(g)>0)g<-att.sete(g=g, from="weight", to='edgeWidth', nquant=5, xlim=c(1,15,1),roundleg=2)
+      g<-att.setv(g=g, from="degree", to='nodeSize', xlim=c(20,100,1), nquant=5, roundleg=1,title="Regulon size")
+      V(g)$nodeFontSize<-20
+      return(g)
+      
+    } else if(gtype=="amapDend"){
+      
+      if(!is.null(hcl)){
+        gg<-hclust2igraph(hcl)
+      } else {
+        x<-tni.amap(tnet[,tfs], overlap)
+        diag(x)=1
+        hcl <- hclust(as.dist(1-cor(x)), method='complete')
+        gg<-hclust2igraph(hcl)
+      }
+      gg$hcl<-hcl
+      sz<-apply(tnet!=0, 2, sum)
+      idx<-match(V(gg$g)$name,tfs)
+      V(gg$g)$nodeAlias<-names(tfs)[idx]
+      V(gg$g)$nodeAlias[is.na(idx)]<-"$hcnode"
+      idx<-match(V(gg$g)$name,names(sz))
+      V(gg$g)$degree<-sz[idx]
+      #---set main attribs
+      gg$g<-att.setv(g=gg$g, from="degree", to='nodeSize', xlim=xlim, breaks=breaks, 
+                     nquant=nquant, roundleg=0, title="Regulon size")
+      V(gg$g)$nodeFontSize<-20
+      V(gg$g)$nodeFontSize[V(gg$g)$nodeAlias=="$hcnode"]<-1
+      V(gg$g)$nodeColor<-"black"
+      V(gg$g)$nodeLineColor<-"black"
+      E(gg$g)$edgeColor<-"black"
+      return(gg)
     }
-    return(g)
+    
   }
+  
 )
 ##------------------------------------------------------------------------------
 ##run conditional mutual information analysis
@@ -651,7 +693,8 @@ setMethod(
   "TNI",
   function(object, modulators=NULL, tfs=NULL, sampling=35, pValueCutoff=0.01, 
            pAdjustMethod="bonferroni", minRegulonSize=15, minIntersectSize=5, 
-           miThreshold="md", prob=0.95, pwtransform=FALSE, verbose=TRUE){
+           miThreshold="md", prob=0.99, pwtransform=FALSE, medianEffect=FALSE, 
+           verbose=TRUE, mdStability=FALSE){
     ##-----check input arguments
     if(object@status["DPI.filter"]!="[x]")stop("NOTE: input data need dpi analysis!")
     tnai.checks(name="modulators",para=modulators)
@@ -661,10 +704,18 @@ setMethod(
     tnai.checks(name="pAdjustMethod",para=pAdjustMethod)
     tnai.checks(name="minRegulonSize",para=minRegulonSize)
     tnai.checks(name="minIntersectSize",para=minIntersectSize)
-    tnai.checks(name="pwtransform",para=pwtransform)
     tnai.checks(name="miThreshold",para=miThreshold)
+    tnai.checks(name="pwtransform",para=pwtransform)
+    tnai.checks(name="medianEffect",para=medianEffect)
     tnai.checks(name="prob",para=prob)
     tnai.checks(name="verbose",para=verbose)
+    #check additional args (experimental)
+    if(is.logical(mdStability)){
+      mrkboot<-NULL
+    } else {
+      mrkboot<-tnai.checks(name="mdStability.custom",para=mdStability)
+      mdStability<-TRUE
+    }
     ##-----par info
     object@para$cdt<-list(sampling=sampling, pValueCutoff=pValueCutoff,
                           pAdjustMethod=pAdjustMethod, minRegulonSize=minRegulonSize, 
@@ -737,17 +788,6 @@ setMethod(
     }
     object@modulators<-modulators
     
-    #     ##---
-    #     if(verbose && dpiFilter && length(modulators)>30){
-    #       cat("\nNote: 'dpiFilter=TRUE' can be computationally costly!\n")
-    #       cat("Continue (y/n)? \n")
-    #       b1<-readLines(n=1)
-    #       if(b1!="y"){
-    #         cat("Analysis canceled! \n")
-    #         return(object)
-    #       }
-    #     }
-    
     ##-----get TF-targets from tnet
     if(verbose)cat("--Extracting TF-targets...\n")
     tfTargets<-list()
@@ -815,6 +855,7 @@ setMethod(
         NULL
       }) 
     }
+    
     ##-----estimate mutual information threshold
     if(is.character(miThreshold)){
       if(verbose)cat("\n")
@@ -822,47 +863,18 @@ setMethod(
       if(miThreshold=="md.tf"){
         mimark<-miThresholdMdTf(gxtemp,tfs=tfs,nsamples=spsz,prob=prob,nPermutations=object@para$perm$nPermutations, 
                                 estimator=object@para$perm$estimator,verbose=verbose)
-      } else if(miThreshold=="md.tf.tar"){
-        mimark<-miThresholdMdTfTar(gxtemp,tfs=tfs,nsamples=spsz,prob=prob,nPermutations=object@para$perm$nPermutations, 
-                                   estimator=object@para$perm$estimator,verbose=verbose)
       } else {
         mimark<-miThresholdMd(gxtemp,nsamples=spsz,prob=prob,nPermutations=object@para$perm$nPermutations, 
                               estimator=object@para$perm$estimator,verbose=verbose)
       }
     } else {
-      mimark<-miThreshold
-      if(is.matrix(miThreshold)){
-        miThreshold<-"md.tf.tar"
-        cn<-colnames(mimark)
-        rn<-rownames(mimark)
-        if(is.null(rn) || is.null(cn)){
-          stop("custom 'miThreshold' matrix should be named, matching TF and target ids!")
-        } 
-        if( all(tfs%in%cn) ){
-          mimark<-mimark[,tfs]
-        } else if(all(names(tfs)%in%cn)){
-          mimark<-mimark[,names(tfs)]
-        } else {
-          stop("colnames in custom 'miThreshold' matrix should match TF ids!")
-        }
-        if( all(rownames(gxtemp)%in%rn) ){
-          mimark<-mimark[rownames(gxtemp),]
-        } else {
-          stop("rownames in custom 'miThreshold' matrix should match target ids!")
-        }
-      } else if(length(miThreshold)>1){
-        miThreshold<-"md.tf"
-        if(is.null(names(mimark))){
-          stop("custom 'miThreshold' vector should be named, matching TF ids!")
-        } else if(all(tfs%in%names(mimark))){
-          mimark<-mimark[tfs]
-        } else if( all(names(tfs)%in%names(mimark)) ){
-          mimark<-mimark[names(tfs)]
-        } else {
-          stop("names in custom 'miThreshold' vector should match TF ids!")
-        }
+      mimark<-sort(miThreshold)
+      miThreshold<-"md"
+      if(length(mimark)==1){
+        mimark<-abs(mimark)
+        mimark<-c(-mimark,mimark)
       } else {
-        miThreshold<-"md"
+        if(sum(mimark>0)!=1)stop("'miThreshold' upper and lower bounds should have different signals!")
       }
       object@summary$para$cdt[,"prob"]<-"custom"
       object@para$cdt$prob<-NA
@@ -870,166 +882,227 @@ setMethod(
     ##-----update miThreshold
     object@summary$para$cdt[,"miThreshold"]<-miThreshold
     object@para$cdt$miThreshold<-mimark
-    ##-----start conditional mutual information analysis
-    if(verbose)cat("\n")
-    if(verbose)cat("-Performing conditional mutual information analysis...\n")
-    if(verbose)cat("--For", length(tfs), "tfs and" , length(modulators), "candidate modulators \n")
-    #set data object to save results
+    
+    ##-----set data object to save results
     reseffect<-lapply(tfTargets,function(tar){
       data.frame(tagets=tar,stringsAsFactors=FALSE)
     })
     rescount<-lapply(tfTargets,function(tar){
-      res<-data.frame(NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,stringsAsFactors=FALSE)
-      colnames(res)<-c("Modulator","IConstraint","RConstraint","TF","UniverseSize","EffectSize","RegulonSize","Expected",
-                       "Observed","Negative","Positive","Mode","OR(+/-)","PvFET","AdjPvFET","KS","PvKS","AdjPvKS")
+      res<-data.frame(NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,stringsAsFactors=FALSE)
+      colnames(res)<-c("Modulator","irConstraint","nConstraint","TF","UniverseSize","EffectSize","RegulonSize","Expected",
+                       "Observed","Negative","Positive","Mode","PvFET","AdjPvFET","KS","PvKS","AdjPvKS")
       res
     })
     
-    #supplementary information to be added: get simple correlation between tfs and modulator candidates
-    #rnet<-tni.tfmdcor(object@gexp,tfs, modulators)
-    #rnet<-round(rnet,2)
+    ##-----start conditional mutual information analysis
     
-    if(verbose) pb <- txtProgressBar(style=3)
+    modregulons<-list()
+    glstat<-list()
+    if(verbose)cat("\n")
+    if(verbose)cat("-Performing conditional mutual information analysis...\n")
+    if(verbose)cat("--For", length(tfs), "tfs and" , length(modulators), "candidate modulators \n")
+    if(verbose && !mdStability) pb <- txtProgressBar(style=3)
+    
     for(i in 1:length(modulators)){
+      
       md<-modulators[i]
       #get sample ordering
       lw<-idxLow[md,]
       hg<-idxHigh[md,]
       #compute mi on both tails
       milow<-tni.pmim(gxtemp[,lw],tfs,estimator=object@para$perm$estimator)
-      mihigh<-tni.pmim(gxtemp[,hg],tfs,estimator=object@para$perm$estimator) 
+      mihigh<-tni.pmim(gxtemp[,hg],tfs,estimator=object@para$perm$estimator)
       #get mi delta
       miDelta<-mihigh-milow
-      #identify modulations above delta mi threshold
-      if(miThreshold=="md.tf"){
-        sigd<-t(t(abs(miDelta))>mimark) 
+      #identify modulations above mi threshold
+      if(miThreshold=="md.tf" && length(tfs)>1){
+        sigDelta<-t(apply(miDelta,1,"<",mimark[,1])) | t(apply(miDelta,1,">",mimark[,2]))
       } else {
-        sigd<-abs(miDelta)>mimark
+        sigDelta<- miDelta<mimark[1] | miDelta>mimark[2]
       }
       miDelta<-miDelta/(mihigh+milow)
-      miDelta[!sigd]<-0
-      #get final results
+      
+      #check modulator stability (experimental)
+      #computational cost forbids default use or advanced customization
+      #better only for final verification, and one modulator each time!
+      if(mdStability){
+        if(is.null(mrkboot)){
+          if(verbose)cat("\n-Estimating stability threshold...\n")
+          mrkboot<-miThresholdMd(gxtemp,nsamples=spsz,prob=c(0.05, 0.95),
+                                 nPermutations=1000,estimator=object@para$perm$estimator,
+                                 verbose=verbose)
+        }
+        if(verbose)cat("-Checking modulation stability for", names(md), "\n")
+        stabt<-cdt.stability(gxtemp,object@para$perm$estimator,mrkboot,miThreshold,
+                             spsz,md,tfs,sigDelta,nboot=100,consensus=75,verbose=verbose)
+        sigDelta[!stabt]<-FALSE
+      } else {
+        if(verbose) setTxtProgressBar(pb, i/length(modulators))
+      }
+      
+      #decision
+      miDelta[!sigDelta]<-0
+      
+      #run main analysis
       sapply(tfs,function(tf){
+        
         dtvec<-miDelta[,tf]
         tftar<-tfTargets[[tf]]
         tfalltar<-tfAllTargets[[tf]]
         #---get SZs
-        #todos modulados no dataset
-        #EffectSZ<-sum(dtvec!=0)
-        #todos testados no dataset
-        #UniSZ<-length(dtvec)
-        #todos modulados na tnet
+        #all modulated
         EffectSZ<-sum(dtvec[tnetAllTargets]!=0)
-        #todos testados na tnet
+        #all tested
         UniSZ<-length(tnetAllTargets)
-        #demais
+        #others
         RegSZ<-length(tftar)
         ExpOV<-(EffectSZ*RegSZ)/UniSZ
         ObsOV<-sum(dtvec[tftar]!=0)
-        if( (ObsOV/RegSZ*100)>=minIntersectSize && ExpOV>=1 ){
-          #apply exclusion list (independence/range constraint)
-          iconst<-ifelse(md%in%IConstraintList[[tf]],1,0)
-          rconst<-ifelse(md%in%RConstraintList,1,0)
-          if(iconst || rconst){
-            EffectSZ<-NA;ExpOV<-NA;ObsOV<-NA;ObsPos<-NA
-            ObsNeg<-NA;Mode<-NA;pvfet<-NA
-            dks<-NA;pvks<-NA;ORPN<-NA
+        
+        #---run stats
+        #check exclusion list (independence/range constraint)
+        irconst<-md%in%IConstraintList[[tf]] || md%in%RConstraintList
+        #check minimum number of modulated targets for testing (n constraint)
+        nconst<-(ObsOV/RegSZ*100)<minIntersectSize || ExpOV<1
+        if(irconst || nconst ){
+          ObsPos<-NA;ObsNeg<-NA;Mode<-NA;pvfet<-NA; 
+          dks<-NA;pvks<-NA;dtvec[]<-0
+        } else {
+          #---get mode of actions
+          ObsPos<-sum(dtvec[tftar]>0)
+          ObsNeg<-sum(dtvec[tftar]<0)
+          Mode<-if(ObsNeg>ObsPos) -1 else if(ObsNeg<ObsPos) 1 else 0
+          #---set obs to predicted mode
+          Obs<-if(Mode==-1) abs(ObsNeg) else if(Mode==1) ObsPos else ObsOV
+          #---run fet with phyper (obs-1)
+          pvfet <- phyper(Obs-1, RegSZ, UniSZ-RegSZ, EffectSZ, lower.tail=FALSE)
+          #---run ks test
+          #pheno
+          pheno<-abs(object@results$tn.ref[,tf])
+          pheno<-pheno[pheno!=0]
+          #hits
+          hits<-dtvec[tftar]
+          hits<-hits[hits!=0]
+          hits<-which(names(pheno)%in%names(hits))
+          if(length(hits)>length(pheno)/2){
+            dks<-1
+            pvks<-0
           } else {
-            #---get mode of actions
-            ObsPos<-sum(dtvec[tftar]>0)
-            ObsNeg<-sum(dtvec[tftar]<0)
-            Mode<-if(ObsNeg>ObsPos) -1 else if(ObsNeg<ObsPos) 1 else 0
-            #---resolve obs
-            Obs<-if(Mode==-1) abs(ObsNeg) else if(Mode==1) ObsPos else ObsOV
-            #---run fet with phyper (obs-1)
-            pvfet <- phyper(Obs-1, RegSZ, UniSZ-RegSZ, EffectSZ, lower.tail=FALSE)
-            #---run ks test
-            #pheno
-            pheno<-abs(object@results$tn.ref[,tf])
-            pheno<-pheno[pheno!=0]
-            #hits
-            hits<-dtvec[tftar]
-            hits<-hits[hits!=0]
-            hits<-which(names(pheno)%in%names(hits))
-            #run ks stat
-            if(length(hits)>length(pheno)/2){
-              dks<-1
-              pvks<-0
-            } else {
-              kst<-ks.test(pheno[-hits],pheno[hits],alternative="greater")
-              dks<-kst$statistic
-              pvks<-kst$p.value
-            }
-            #count (+) and (-) tf-targets in the modulated set
-            #express by the ratio of (+) or (-) targets, espectively
-            if(Mode>=0){
-              mdtf.tar<-dtvec[tftar]
-              mdtf.tar<-names(mdtf.tar)[mdtf.tar>0]
-              tf.tar<-object@results$tn.dpi[tftar,tf]
-              mdtf.tar<-tf.tar[mdtf.tar]
-              p1<-sum(mdtf.tar>0)/sum(tf.tar>0)
-              p2<-sum(mdtf.tar<0)/sum(tf.tar<0)
-              bl<-!is.nan(p1) && !is.nan(p2)
-              if(bl && p1>0 && p2>0){
-                ORPN<-round((p1/(1-p1))/(p2/(1-p2)),2)
-                #ORPN<-round(p1/p2,2)
-              } else {
-                ORPN<-NA
-              }
-            } else {
-              mdtf.tar<-dtvec[tftar]
-              mdtf.tar<-names(mdtf.tar)[mdtf.tar<0]
-              tf.tar<-object@results$tn.dpi[tftar,tf]
-              mdtf.tar<-tf.tar[mdtf.tar]
-              p1<-sum(mdtf.tar>0)/sum(tf.tar>0)
-              p2<-sum(mdtf.tar<0)/sum(tf.tar<0)
-              bl<-!is.nan(p1) && !is.nan(p2)
-              if(bl && p1>0 && p2>0){
-                ORPN<-round((p1/(1-p1))/(p2/(1-p2)),2)
-                #ORPN<-round(p1/p2,2)
-              } else {
-                ORPN<-NA
-              }
-            }
+            kst<-ks.test(pheno[-hits],pheno[hits],alternative="greater")
+            dks<-kst$statistic
+            pvks<-kst$p.value
           }
-          #---add results to a list
-          reseffect[[tf]][[md]]<<-dtvec[tftar]
-          rescount[[tf]][md,]<<-c(NA,NA,NA,NA,UniSZ,EffectSZ,RegSZ,ExpOV,ObsOV,ObsNeg,ObsPos,Mode,ORPN,pvfet,NA,dks,pvks,NA)
-          rescount[[tf]][md,c(1,2,3,4)]<<-c(md,iconst,rconst,tf)
+          #count (+) and (-) tf-targets in the modulated set
+          #expressed by the ratio of (+) or (-) targets, respectively
+          if(Mode>=0){
+            mdtf.tar<-dtvec[tftar]
+            mdtf.tar<-names(mdtf.tar)[mdtf.tar>0]
+            tf.tar<-object@results$tn.dpi[tftar,tf]
+            mdtf.tar<-tf.tar[mdtf.tar]
+            p1<-sum(mdtf.tar>0)/sum(tf.tar>0)
+            p2<-sum(mdtf.tar<0)/sum(tf.tar<0)
+            bl<-!is.nan(p1) && !is.nan(p2)
+          } else {
+            mdtf.tar<-dtvec[tftar]
+            mdtf.tar<-names(mdtf.tar)[mdtf.tar<0]
+            tf.tar<-object@results$tn.dpi[tftar,tf]
+            mdtf.tar<-tf.tar[mdtf.tar]
+            p1<-sum(mdtf.tar>0)/sum(tf.tar>0)
+            p2<-sum(mdtf.tar<0)/sum(tf.tar<0)
+            bl<-!is.nan(p1) && !is.nan(p2)
+          }
+        }
+        
+        #---add results to a list
+        reseffect[[tf]][[md]]<<-dtvec[tftar]
+        rescount[[tf]][md,]<<-c(NA,NA,NA,NA,UniSZ,EffectSZ,RegSZ,ExpOV,ObsOV,ObsNeg,ObsPos,Mode,pvfet,NA,dks,pvks,NA)
+        rescount[[tf]][md,c(1,2,3,4)]<<-c(md,irconst,nconst,tf)
+        
+        #---retain modulated targets
+        mdtftar<-tftar[ dtvec[tftar]!=0]
+        if(length(mdtftar)>1){
+          modregulons[[md]][[tf]]<<-mdtftar
+        } else {
+          modregulons[[md]][[tf]]<<-c(NA,NA)
+          modregulons[[md]][[tf]]<<-mdtftar
         }
         NULL
+        
       })
-      if(verbose) setTxtProgressBar(pb, i/length(modulators))
+      
+      #compute mi differential score for each regulon (signal-to-noise ratio)
+      #this is a global stats, only used to assess the median effect 
+      #in the selected regulons
+      if(medianEffect){
+        sig2noise<-sapply(names(modregulons[[md]]),function(tf){
+          tftar<-modregulons[[md]][[tf]]
+          h<-mihigh[tftar,tf]
+          l<-milow[tftar,tf]
+          (median(h)-median(l))/(sd(h)+sd(l)) 
+        })
+        sig2noise[is.na(sig2noise)]<-0
+        glstat$observed[[md]]$sig2noise<-sig2noise
+      }
+      
     }
-    if(verbose)close(pb)
+    
+    if(verbose && !mdStability) close(pb)
+    
     #set data format
-    sapply(names(rescount),function(tf){
+    junk<-sapply(names(rescount),function(tf){
       results<-rescount[[tf]][-1,,drop=FALSE]
       if(nrow(results)>0){
-        #results[,"AdjPvFET"] <- p.adjust(results[,"PvFET"], method=pAdjustMethod)
-        #results[,"AdjPvKS"] <- p.adjust(results[,"PvKS"], method=pAdjustMethod)
-        results[,"PvFET"]<-signif(results[,"PvFET"],digits=4)
-        results[,"AdjPvFET"]<-signif(results[,"AdjPvFET"],digits=2)
-        results[,"PvKS"]<-signif(results[,"PvKS"],digits=4)
-        results[,"AdjPvKS"]<-signif(results[,"AdjPvKS"],digits=2)
         results[,"Expected"]<-round(results[,"Expected"],2)
         results[,"KS"]<-round(results[,"KS"],2)
       }
       rescount[[tf]]<<-results
       NULL
     })
+    
     ##global p.adjustment
-    rescount<-p.adjust.cdt(cdt=rescount,pAdjustMethod=pAdjustMethod, p.name="PvKS",adjp.name="AdjPvKS",sort.name="PvKS")
-    rescount<-p.adjust.cdt(cdt=rescount,pAdjustMethod=pAdjustMethod, p.name="PvFET",adjp.name="AdjPvFET")
-    rescount<-sortblock.cdt(cdt=rescount)
-    ##update summary and return results
-    object@results$conditional$count<-rescount 
+    #rescount<-p.adjust.cdt(cdt=rescount,pAdjustMethod=pAdjustMethod, p.name="PvKS",adjp.name="AdjPvKS",sort.name="PvKS",roundpv=FALSE)
+    #rescount<-p.adjust.cdt(cdt=rescount,pAdjustMethod=pAdjustMethod, p.name="PvFET",adjp.name="AdjPvFET",roundpv=FALSE)
+    rescount<-sortblock.cdt(cdt=rescount,coln="PvFET")
+    
+    ##update summary
+    object@results$conditional$count<-rescount
     object@results$conditional$effect<-reseffect
-    object@status["Conditional"] <- "[x]"
-    if(verbose)cat("-Conditional analysis complete! \n\n")
-    return(object)
+    
+    #compute null based on each regulon's distribution
+    #this is a global stats, only used to assess the median effect on regulons
+    #...not use to infer the modulated targets
+    if(medianEffect){
+      if(verbose)cat("\n")
+      if(verbose)cat("-Checking median modulation effect...\n") 
+      modulatedTFs<-tni.get(object,what="cdt",ntop=-1)
+      modulatedTFs<-unlist(lapply(modulatedTFs,nrow))
+      modulatedTFs<-names(modulatedTFs)[modulatedTFs>0]      
+      if(length(modulatedTFs)>0){
+        if(verbose)cat("--For", length(modulators), "candidate modulators \n")
+        res<-checkModuationEffect(gxtemp,tfs,modregulons,modulatedTFs,glstat,spsz,
+                                  minRegulonSize,pValueCutoff,
+                                  nPermutations=object@para$perm$nPermutations,
+                                  estimator=object@para$perm$estimator,
+                                  pAdjustMethod=pAdjustMethod,
+                                  count=object@results$conditional$count,
+                                  verbose)
+        res$md2tf$count<-p.adjust.cdt(cdt=res$md2tf$count,pAdjustMethod=pAdjustMethod,p.name="PvSNR",
+                                      adjp.name="AdjPvSNR",roundpv=FALSE, global=FALSE)       
+        object@results$conditional$mdeffect$md2tf$null<-res$md2tf$null
+        object@results$conditional$mdeffect$md2tf$observed<-res$md2tf$observed
+        object@results$conditional$mdeffect$tf2md$null<-res$tf2md$null
+        object@results$conditional$mdeffect$tf2md$observed<-res$tf2md$observed       
+        object@results$conditional$count<-res$md2tf$count
+        if(verbose)cat("\n")
+      }
+  }
+  object@status["Conditional"] <- "[x]"
+  if(verbose)cat("-Conditional analysis complete! \n\n")
+  return(object)
   }
 )
+#supplementary information: get simple correlation between tfs and modulator candidates
+#rnet<-tni.tfmdcor(object@gexp,tfs, modulators)
 
 ##------------------------------------------------------------------------------
 ##show summary information on screen

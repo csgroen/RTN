@@ -15,7 +15,8 @@ the TF and its targets conditioned to the gene expression of a modulator.
 \usage{
 tni.conditional(object, modulators=NULL, tfs=NULL, sampling=35, pValueCutoff=0.01, 
 pAdjustMethod="bonferroni", minRegulonSize=15, minIntersectSize=5, 
-miThreshold="md", prob=0.95, pwtransform=FALSE, verbose=TRUE)
+miThreshold="md", prob=0.99, pwtransform=FALSE, medianEffect=FALSE, 
+verbose=TRUE, ...)
 }
 
 \arguments{
@@ -55,19 +56,22 @@ a single integer or numeric value specifying the minimum number of observed modu
 elements in a regulon (as percentage value).
 }
 \item{miThreshold}{
-a single character value specifying the underlying distribution used to estimate the mutual information threshold. Options: 'md', 'md.tf' and 'md.tf.tar'. In the 1st case, 'miThreshold' is estimated from a pooled null distribution representing random modulators. In the 2nd case, specific mutual information thresholds are estimated for each TF conditioned on random modulators, while in the last case the 'miThreshold' is estimated for each individual TF-target interaction conditioned on random modulators. In all three options the 'miThreshold' is estimated by permutation analysis (see 'prob'). Alternatively, users can provide a custom mutual information threshold (numeric value >= 0).
+a single character value specifying the underlying distribution used to estimate the mutual information threshold. Options: 'md' and 'md.tf'. In the 1st case, 'miThreshold' is estimated from a pooled null distribution representing random modulators, while in the 2nd case a specific mutual information threshold is estimated for each TF conditioned on the random modulators. In the two options the 'miThreshold' is estimated by permutation analysis (see 'prob'). Alternatively, users can either provide a custom mutual information threshold or a numeric vector with lower (a) and upper (b) bounds for the differential mutual information analysis (e.g. 'c(a,b)').
 }
 \item{prob}{
 a probability value in [0,1] used to estimate the 'miThreshold' based on the underlying quantile distribution.
 }
 \item{pwtransform}{
-a single logical value specifying whether a Box-Cox power transformation should be used to improve the data symmetry (this procedure might be carefully used as a complementary test to check the validity of the inferred associations).
+a single logical value specifying whether a Box-Cox power transformation should be used to improve data symmetry (this procedure might be carefully used as a complementary test to check the validity of the inferred associations).
+}
+\item{medianEffect}{
+a single logical value specifying whether to assess the median effect of each modulator. This global statistics does not affect the inferential process over single TF-target interactions. This method is still experimental, it can be used as a complementary analysis to chek the overall modulation effect onto all targets listed in a given regulon (this step  may require substantial computation time).
 }
 \item{verbose}{
 a single logical value specifying to display detailed messages (when 
 verbose=TRUE) or not (when verbose=FALSE)
 }
-
+\item{...}{ additional arguments passed to tna.graph function. } 
 }
 
 \value{

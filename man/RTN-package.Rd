@@ -15,11 +15,11 @@ This package provides classes and methods for transcriptional network inference 
 \tabular{ll}{
 Package: \tab RTN\cr
 Type: \tab Package\cr
-Depends: \tab methods, igraph\cr
-Imports: \tab minet, snow, limma, RedeR\cr
-Suggests: \tab HTSanalyzeR\cr
+Depends: \tab R (>= 2.15), methods, igraph\cr
+Imports: \tab RedeR, minet, snow, limma, data.table, ff, car, IRanges\cr
+Suggests: \tab HTSanalyzeR, RUnit, BiocGenerics\cr
 License: \tab Artistic-2.0\cr
-biocViews: \tab NetworkInference, NetworkAnalysis, NetworkEnrichment, GeneRegulation\cr
+biocViews: \tab NetworkInference, GeneRegulation, GeneExpression, GraphsAndNetworks\cr
 Collate: \tab ClassUnions.R, AllChecks.R, AllClasses.R, AllGenerics.R, AllSupplements.R, AllPlots.R, TNA-methods.R, TNI-methods.R,AVS-methods.R\cr
 LazyLoad: \tab yes\cr
 }

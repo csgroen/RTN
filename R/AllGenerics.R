@@ -19,13 +19,13 @@ setGeneric("tni.get",
            function(object, what="summary", order=TRUE, ntop=NULL, reportNames=TRUE, idkey=NULL) 
              standardGeneric("tni.get"), package="RTN")
 setGeneric("tni.graph",
-           function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, 
-                    amapFilter="quantile", amapCutoff=NULL, mask=FALSE, ntop=NULL)
+           function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", amapCutoff=NULL, ntop=NULL, ...)
              standardGeneric("tni.graph"), package="RTN")
 setGeneric("tni.conditional",
            function(object, modulators=NULL, tfs=NULL, sampling=35, pValueCutoff=0.01, 
                     pAdjustMethod="bonferroni", minRegulonSize=15, minIntersectSize=5, 
-                    miThreshold="md", prob=0.95, pwtransform=FALSE, verbose=TRUE)
+                    miThreshold="md", prob=0.99, pwtransform=FALSE, medianEffect=FALSE, 
+                    verbose=TRUE, ...)
              standardGeneric("tni.conditional"), package="RTN")
 setGeneric("tni2tna.preprocess",
            function(object, phenotype=NULL, hits=NULL, phenoIDs=NULL, duplicateRemoverMethod="max", 
@@ -33,8 +33,7 @@ setGeneric("tni2tna.preprocess",
              standardGeneric("tni2tna.preprocess"), package="RTN")
 ##-------------------------------------------------------------------------
 setGeneric("tna.graph",
-           function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", 
-                    amapCutoff=NULL, mask=FALSE)
+           function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", amapCutoff=NULL, ...)
              standardGeneric("tna.graph"), package="RTN")
 setGeneric("tna.mra",
            function(object, pValueCutoff=0.05, pAdjustMethod="BH", minRegulonSize=15,

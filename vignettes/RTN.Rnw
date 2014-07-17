@@ -214,10 +214,9 @@ To visualize the GSEA distributions, the user can apply the \Rfunction{tna.plot.
 
 \begin{small}
 <<label=Plot GSEA, eval=TRUE, results=hide>>=
-tna.plot.gsea1(rtna, width=6, height=4, 
+tna.plot.gsea1(rtna, file="tna_test", width=6, height=4, 
               heightPanels=c(1,0.7,3), 
-              ylimPanels=c(0,3.5,0,0.8), 
-              labPheno="tna_test") 
+              ylimPanels=c(0,3.5,0,0.8)) 
 @ 
 \end{small}
 

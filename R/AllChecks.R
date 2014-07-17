@@ -52,9 +52,13 @@ tnai.checks <- function(name, para) {
       stop("'markers' should be a character vector, without 'NA' or empty names!",call.=FALSE)
   }
   else if(name=="tni.gtype"){
-    opts<-c("rmap","amap","mmap","mmapDetailed")
+    opts<-c("rmap","amap","amapDend","mmap","mmapDetailed")
     if(!is.character(para) || length(para)!=1 || !(para %in% opts))
       stop(paste("'gtype' should be any one of the options:", paste(opts,collapse = ", ") ),call.=FALSE )
+  }
+  else if(name=="hcl"){
+    if( !is.null(para) && !class(para)=="hclust" )
+      stop("'hcl' should be an 'hclust' object whith TF's IDs!",call.=FALSE)
   }
   else if(name=="tna.gtype"){
     opts<-c("rmap","amap")
@@ -88,6 +92,22 @@ tnai.checks <- function(name, para) {
     if(!is.logical(para) || length(para)!=1)
       stop("'pwtransform' should be a logical value!",call.=FALSE)
   }
+  else if(name=="medianEffect"){
+    if(!is.logical(para) || length(para)!=1)
+      stop("'medianEffect' should be a logical value!",call.=FALSE)
+  }
+  else if(name=="mdStability.custom"){ 
+    if( (!is.numeric(para) && !is.integer(para)) || length(para)<1 || length(para)>2){
+      stop("custom 'mdStability' should be a numeric value, or a vector of length = 2!",call.=FALSE)
+    }
+    if(length(para)==1){
+      para<-c(-abs(para),abs(para))
+    } else {
+      para<-sort(para)
+      if(sum(para>0)!=1)stop("custom 'mdStability' upper and lower bounds should have different signals!")
+    }
+    return(para)
+  }
   else if(name=="reportNames"){
     if(!is.logical(para) || length(para)!=1)
       stop("'reportNames' should be a logical value!",call.=FALSE)
@@ -95,10 +115,6 @@ tnai.checks <- function(name, para) {
   else if(name=="autoformat"){
     if(!is.logical(para) || length(para)!=1)
       stop("'autoformat' should be a logical value!",call.=FALSE)
-  }
-  else if(name=="splitcor"){
-    if(!is.logical(para) || length(para)!=1)
-      stop("'splitcor' should be a logical value!",call.=FALSE)
   }
   else if(name=="labpair") {
     if( (!is.matrix(para) || ncol(para)!=2) )
@@ -200,18 +216,22 @@ tnai.checks <- function(name, para) {
       stop("'listOfRegulons' should be a list of gene sets!\n")
     if(  is.null(names(para)) || length(unique(names(para)))<length(names(para))  )
       stop("'listOfRegulons' should be a named list (unique names)!",call.=FALSE)
-    #if(any(unlist(lapply(para,length))==0))
-    #  stop("empty regulon(s) found!",call.=FALSE)
+    junk<-lapply(para,function(reg){
+      if(!is.character(reg))
+        stop("'listOfRegulons' should include character vectors!",call.=FALSE)
+    })
   }
-  else if(name=="listOfRegulonPairs") {
+  else if(name=="listOfRegulonsAndMode") {
     if(!is.list(para))
-      stop("'listOfRegulonPairs' should be a list of gene set collections!",call.=FALSE)
-    if(is.null(names(para)))
-      stop("'listOfRegulonPairs' should be a named list!",call.=FALSE)
-    if(!all(unlist(lapply(para,is.list))))
-      stop("each gene set collection in 'listOfRegulonPairs' should be a list of gene sets!",call.=FALSE)
-    #if(any(unlist(lapply(para,length))==0))
-    #  stop("empty gene set collection(s) in 'listOfRegulonPairs'!",call.=FALSE)
+      stop("'listOfRegulonsAndMode' should be a list of gene sets!\n")
+    if(  is.null(names(para)) || length(unique(names(para)))<length(names(para))  )
+      stop("'listOfRegulonsAndMode' should be a named list (unique names)!",call.=FALSE)
+    junk<-lapply(para,function(reg){
+      if( !( is.numeric(reg) || is.integer(reg) ) )
+        stop("'listOfRegulonsAndMode' should include named numeric or integer vectors!",call.=FALSE)
+      if(is.null(names(reg)) || any(is.na(names(reg))) || any(names(reg)==""))
+        stop("'listOfRegulonsAndMode' should include named vectors, without 'NA' or empty names!",call.=FALSE)
+    })
   }
   else if(name=="glist") {
     if(!is.null(para)){
@@ -224,8 +244,6 @@ tnai.checks <- function(name, para) {
           as.character(gl)
         })
       }
-      #if(any(unlist(lapply(para,length))==0))
-      #  stop("empty gene set(s) found in 'glist'!",call.=FALSE)
       return(para)
     }
   }
@@ -245,11 +263,11 @@ tnai.checks <- function(name, para) {
   }
   else if(name=="miThreshold") {
     if(is.character(para)){
-      if(!is.character(para) || length(para)!=1 || !(para %in% c("md","md.tf","md.tf.tar")))
-        stop("'miThreshold' should be any one of 'md', 'md.tf' and 'md.tf.tar'!",call.=FALSE)
+      if(!is.character(para) || length(para)!=1 || !(para %in% c("md","md.tf")))
+        stop("'miThreshold' should be any one of 'md' and 'md.tf''!",call.=FALSE)
     } else {
-      if( !(is.integer(para) || is.numeric(para)) || any(para<0) )
-        stop("custom 'miThreshold' should have integer or numeric values >=0 !",call.=FALSE)
+      if( !(is.integer(para) || is.numeric(para)) || length(para)<1 || length(para)>2)
+        stop("custom 'miThreshold' should be a numeric value, or a vector of length = 2!",call.=FALSE)
     }
   }
   else if(name=="consensus") {
@@ -496,76 +514,13 @@ tnai.checks <- function(name, para) {
     if(!is.logical(para) || length(para)!=1)
       stop("'globalAdjustment' should be a logical value!",call.=FALSE)
   }
-  else if(name=="tna.para") {
-    if(missing(para))
-      stop("'para' should be provided as a list!",call.=FALSE)
-    ##default parameters
-    para.default<-list(pValueCutoff = 0.05,pAdjustMethod = "BH", nPermutations = 1000, minRegulonSize = 15,exponent = 1)
-    ##check if input parameters are supported
-    if(length(setdiff(names(para),names(para.default)))>0) 
-      stop("Some parameters in 'para' are not supported. Check the right format of para!",call.=FALSE)
-    ##fill out default parameters for non-specified ones
-    para.unspecified<-setdiff(names(para.default),names(para))
-    if(length(para.unspecified)>0)
-      for(i in 1:length(para.unspecified)) {
-        para[[para.unspecified[i]]]<-para.default[[para.unspecified[i]]]
-      }
-    ##check data type in para
-    if(!(is.integer(para$pValueCutoff) || is.numeric(para$pValueCutoff)) || length(para$pValueCutoff)!=1 || para$pValueCutoff>1)
-      stop("'pValueCutoff' should be an integer or numeric value <=1!",call.=FALSE)
-    if(!is.character(para$pAdjustMethod) || length(para$pAdjustMethod)!=1 || 
-      !(para$pAdjustMethod %in% c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none")))
-      stop("'pAdjustMethod' should be any one of 'holm', 'hochberg', 'hommel', 'bonferroni', 'BH', 'BY', 'fdr' and 'none'!",call.=FALSE)
-    if(!(is.integer(para$nPermutations) || is.numeric(para$nPermutations)) || length(para$nPermutations)!=1 || para$nPermutations<1)
-      stop("'nPermutations' should be an integer >=1!",call.=FALSE)
-    if(!(is.integer(para$minRegulonSize) || is.numeric(para$minRegulonSize)) || length(para$minRegulonSize)!=1 || para$minRegulonSize<1)
-      stop("'minRegulonSize' should be an integer >=1!",call.=FALSE)
-    if(!(is.integer(para$exponent) || is.numeric(para$exponent)) || length(para$pValueCutoff)!=1 || para$exponent<1)
-      stop("'exponent' should be an integer or numeric value >=1 !",call.=FALSE)
-    return(para)
-  }
-  else if(name=="tni.para") {
-    if(missing(para))stop("'para' should be provided as a list!",call.=FALSE)
-    ##default parameters
-    para.default<-list(pValueCutoff=0.001, pAdjustMethod="BH", globalAdjustment=TRUE, estimator="pearson",
-                       nPermutations=1000, nBootstraps=100, pooledNullDistribution=TRUE, consensus=95, eps=0)
-    ##check if input parameters are supported
-    if(length(setdiff(names(para),names(para.default)))>0) 
-      stop("Some parameters in 'para' are not supported. Check the right format of para!",call.=FALSE)
-    ##fill out default parameters for non-specified ones
-    para.unspecified<-setdiff(names(para.default),names(para))
-    if(length(para.unspecified)>0)
-      for(i in 1:length(para.unspecified)) {
-        para[[para.unspecified[i]]]<-para.default[[para.unspecified[i]]]
-      }
-    ##check data type in para
-    if(!(is.integer(para$pValueCutoff) || is.numeric(para$pValueCutoff)) || 
-      length(para$pValueCutoff)!=1 || para$pValueCutoff>1)
-      stop("'pValueCutoff' should be an integer or numeric value <=1 !",call.=FALSE)
-    if(!is.character(para$pAdjustMethod) || length(para$pAdjustMethod)!=1 || 
-      !(para$pAdjustMethod %in% c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none")))
-      stop("'pAdjustMethod' should be any one of 'holm', 'hochberg', 'hommel', 'bonferroni', 'BH', 'BY', 'fdr' and 'none'!",call.=FALSE)
-    if(!is.logical(para$globalAdjustment) || length(para$globalAdjustment)!=1)
-      stop("'globalAdjustment' should be a logical value!",call.=FALSE)
-    if(!is.character(para$estimator) || length(para$estimator)!=1 || 
-      !(para$estimator %in% c("pearson", "kendall", "spearman")))
-      stop("'estimator' should be any one of 'pearson', 'kendall' and 'spearman'",call.=FALSE)
-    if(!(is.integer(para$nPermutations) || is.numeric(para$nPermutations)) || length(para$nPermutations)!=1 || para$nPermutations<1)
-      stop("'nPermutations' should be an integer >=1!",call.=FALSE)
-    if(!(is.integer(para$nBootstraps) || is.numeric(para$nBootstraps)) || length(para$nBootstraps)!=1 || para$nBootstraps<1)
-      stop("'nBootstraps' should be an integer >=1!",call.=FALSE)
-    if(!(is.integer(para$consensus) || is.numeric(para$consensus)) || length(para$consensus)!=1 || 
-      para$consensus>100 || para$consensus<1)
-      stop("'consensus' should be an integer or numeric value <=100 and >=1 !",call.=FALSE)   
-    if(!is.logical(para$pooledNullDistribution) || length(para$pooledNullDistribution)!=1)
-      stop("'pooledNullDistribution' should be a logical value!",call.=FALSE)
-    if(!is.numeric(para$eps) || length(para$eps)!=1 || para$eps<0)
-      stop("'eps' should be an numeric value >=0!",call.=FALSE)    
-    return(para)
-  }
   else if(name=="filepath"){
     if(!is.character(para) || length(para)!=1)
       stop("'filepath' should be a single character!",call.=FALSE)
+  }
+  else if(name=="file"){
+    if(!is.character(para) || length(para)!=1)
+      stop("'file' should be a single character!",call.=FALSE)
   }
   else if(name=="ylimPanels") {
     if(!(is.numeric(para) || is.integer(para)) || length(para)!=4 )

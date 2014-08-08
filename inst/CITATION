@@ -1,17 +1,12 @@
 citEntry(entry = "Article",
-  author = "Mauro AA Castro, Xin Wang, Michael NC Fletcher, Kerstin B Meyer and Florian Markowetz",
-  title = "RedeR: R/Bioconductor package for representing modular structures, nested networks and multiple levels of hierarchical associations.",
-  journal = "Genome Biology",
-  year = "2012",
-  volume = "13",
-  pages = "R29",
-  number = "4",
-  doi = "10.1186/gb-2012-13-4-r29",
-  textVersion  = 
-  paste("Castro MAA, Wang X, Fletcher MNC, Meyer KB, Markowetz F.", 
-	"RedeR: R/Bioconductor package for representing modular structures,",
-	"nested networks and multiple levels of hierarchical associations.",
-	"Genome Biology 13:R29, 2012.",sep=" ")
+  author = "Michael Fletcher and Mauro Castro and Xin Wang and Ines de Santiago and Martin O'Reilly and et al.",
+  title = "Master regulators of FGFR2 signalling and breast cancer risk.",
+  journal = "Nature Communications",
+  year = "2013",
+  volume = {4},
+  pages = {2464},
+  note = "RTN: reconstruction of transcriptional networks and analysis of master regulators. R package, 2013.",
+  doi = "10.1038/ncomms3464",
+  textVersion = "Castro MAA, Wang X, Fletcher MNC, Markowetz F, Meyer KB. RTN: reconstruction of transcriptional networks and analysis of master regulators. R package, 2013. http://bioconductor.org/packages/release/bioc/html/RTN.html"
 )
-
 

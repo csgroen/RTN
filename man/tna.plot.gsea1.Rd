@@ -101,8 +101,7 @@ rtna<-tni2tna.preprocess(rtni, phenotype=dt4rtn$pheno, hits=dt4rtn$hits, phenoID
 rtna <- tna.gsea1(rtna, stepFilter=FALSE)
 
 # plot available GSEA results
-tna.plot.gsea1(rtna, width=6, height=4, heightPanels=c(1,0.7,3), 
-              ylimPanels=c(0,3.5,0,0.9), labPheno="test")
+tna.plot.gsea1(rtna, labPheno="test")
 }
 }
 

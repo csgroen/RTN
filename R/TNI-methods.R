@@ -363,12 +363,11 @@ setMethod(
         qry<-qry[qry[,2 ]=="FALSE" | qry[,2 ]=="0",-2,drop=FALSE]
         query[[nm]]<-qry
       }
+      #obs. daqui resultados saem ordenados, segundo stat disponivel!
       if(what=="cdtrev"){
-        query<-cdtReverse(query,object@para$cdt$pAdjustMethod)
+        query<-cdt.getReverse(query,object@para$cdt$pAdjustMethod)
       } else {
-        query<-p.adjust.cdt(cdt=query,pAdjustMethod=object@para$cdt$pAdjustMethod, p.name="PvFET",adjp.name="AdjPvFET")
-        query<-p.adjust.cdt(cdt=query,pAdjustMethod=object@para$cdt$pAdjustMethod, p.name="PvKS",adjp.name="AdjPvKS",sort.name="PvKS")
-        query<-p.adjust.cdt(cdt=query,pAdjustMethod=object@para$cdt$pAdjustMethod, p.name="PvSNR",adjp.name="AdjPvSNR",global=FALSE)
+        query<-cdt.get(query,object@para$cdt$pAdjustMethod)
       }
       if(is.null(ntop)){
         for(nm in names(query)){
@@ -389,8 +388,7 @@ setMethod(
           qryntop<-ntop
           if(nrow(qry)>1){
             if(qryntop>nrow(qry) || qryntop<0)qryntop=nrow(qry)
-            idx<-sort.list(qry[,"PvKS"]) 
-            qry<-qry[idx[1:qryntop],,drop=FALSE]
+            qry<-qry[1:qryntop,,drop=FALSE]
             query[[nm]]<-qry
           }
         }
@@ -825,7 +823,7 @@ setMethod(
     if(length(modulators)==1){
       gxtemp<-rbind(gxtemp,gxtemp)
     }
-    ##--run limma on both tails to filter-out modulators
+    ##--run limma
     t <- factor(c(rep("low",spsz),rep("high",spsz)))
     design <- model.matrix(~0+t)
     fit <- lmFit(gxtemp,design)
@@ -885,7 +883,7 @@ setMethod(
     
     ##-----set data object to save results
     reseffect<-lapply(tfTargets,function(tar){
-      data.frame(tagets=tar,stringsAsFactors=FALSE)
+      data.frame(targets=tar,stringsAsFactors=FALSE)
     })
     rescount<-lapply(tfTargets,function(tar){
       res<-data.frame(NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,stringsAsFactors=FALSE)

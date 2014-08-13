@@ -1023,7 +1023,7 @@ tni.mmap.detailed<-function(object,mnet,testedtfs,ntop){
         if(tp2[md]>0) tp[tp<0]<-0 else tp[tp>0]<-0
         tp
       })
-      rownames(res)<-tp1$tagets
+      rownames(res)<-tp1$targets
       mnet.targets[[tf]]<<-res
     }
     NULL
@@ -1161,7 +1161,7 @@ tni.phyper<-function(tnet){
 
 #---------------------------------------------------------------
 #reverse results from conditional analyses, from TF-MD to MD-TF
-cdtReverse<-function(cdt,pAdjustMethod="bonferroni"){
+cdt.getReverse<-function(cdt,pAdjustMethod="bonferroni"){
   cdtrev<-list()
   junk<-sapply(1:length(cdt),function(i){
     tf<-names(cdt)[i]
@@ -1178,9 +1178,15 @@ cdtReverse<-function(cdt,pAdjustMethod="bonferroni"){
   if(length(cdtrev)>0){
     cdtrev<-p.adjust.cdt(cdt=cdtrev,pAdjustMethod=pAdjustMethod, p.name="PvFET",adjp.name="AdjPvFET")
     cdtrev<-p.adjust.cdt(cdt=cdtrev,pAdjustMethod=pAdjustMethod, p.name="PvKS",adjp.name="AdjPvKS",sort.name="PvKS")
-    cdtrev<-p.adjust.cdt(cdt=cdtrev,pAdjustMethod=pAdjustMethod, p.name="PvSNR",adjp.name="AdjPvSNR",global=FALSE)
+    cdtrev<-p.adjust.cdt(cdt=cdtrev,pAdjustMethod=pAdjustMethod, p.name="PvSNR",adjp.name="AdjPvSNR",sort.name="PvSNR",global=FALSE)
   }
   cdtrev
+}
+cdt.get<-function(cdt,pAdjustMethod="bonferroni"){
+  cdt<-p.adjust.cdt(cdt=cdt,pAdjustMethod=pAdjustMethod, p.name="PvFET",adjp.name="AdjPvFET")
+  cdt<-p.adjust.cdt(cdt=cdt,pAdjustMethod=pAdjustMethod, p.name="PvKS",adjp.name="AdjPvKS",sort.name="PvKS")
+  cdt<-p.adjust.cdt(cdt=cdt,pAdjustMethod=pAdjustMethod, p.name="PvSNR",adjp.name="AdjPvSNR",sort.name="PvSNR",global=FALSE)
+  cdt
 }
 #---------------------------------------------------------------
 #compute global p.adjustment for conditional analysis
@@ -1225,8 +1231,10 @@ p.adjust.cdt<-function(cdt,pAdjustMethod="bonferroni",p.name="Pvalue",
   if(is.character(sort.name)){
     for(i in 1:length(cdt)){
       tp<-cdt[[i]]
-      tp<-tp[sort.list(tp[[sort.name]],decreasing=decreasing),]
-      cdt[[i]]<-tp
+      if(nrow(tp)>0 && !is.null(tp[[p.name]])){
+        tp<-tp[sort.list(tp[[sort.name]],decreasing=decreasing),]
+        cdt[[i]]<-tp 
+      }
     } 
   }
   cdt

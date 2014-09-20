@@ -1239,7 +1239,6 @@ p.adjust.cdt<-function(cdt,pAdjustMethod="bonferroni",p.name="Pvalue",
   }
   cdt
 }
-
 sortblock.cdt<-function(cdt,coln="PvFET"){
   #sort blocks
   idx1<-unlist(lapply(cdt,nrow))
@@ -1259,99 +1258,109 @@ sortblock.cdt<-function(cdt,coln="PvFET"){
   cdt<-cdt[idx]
   cdt
 }
-#---------------------------------------------------------------
-#test Cohen's Kappa agreement between Modulon and regulons
-# pkappa<-function (Modulon,Regulon){
-#   ttab<-data.frame(A=Modulon,B=Regulon)
-#   ttab<-table(ttab)
-#   #---get tabs
-#   nc <- ncol(ttab)
-#   ns <- sum(ttab)
-#   weighttab <- matrix(0, nrow = nc, ncol = nc)
-#   diag(weighttab)<-c(1,1)
-#   #---kvalue
-#   agreeP <- sum(ttab * weighttab)/ns
-#   tm1 <- apply(ttab, 1, sum)
-#   tm2 <- apply(ttab, 2, sum)
-#   eij <- outer(tm1, tm2)/ns
-#   chanceP <- sum(eij * weighttab)/ns
-#   kvalue <- (agreeP - chanceP)/(1 - chanceP)
-#   return(kvalue)
-# }
-#test overlap of among regulons in a tnet via phyper function
-# tni.phyper<-function(tnet){
-#   tnet[tnet!=0]=1
-#   tnet<-tnet[rowSums(tnet)>0,]
-#   labs<-colnames(tnet)
-#   pmat<-matrix(NA,ncol=ncol(tnet),nrow=ncol(tnet), dimnames=list(labs, labs))
-#   phtest<-function(c1,c2){
-#     c<-c1+c2
-#     pop<-length(c)
-#     sample1<-sum(c1>0)
-#     sample2<-sum(c2>0)
-#     overlap<-sum(c==2)  	
-#     resph<-phyper(overlap, sample1, pop - sample1, sample2, lower.tail=FALSE)
-#     resph
-#   }
-#   for(i in 1:ncol(tnet)){
-#     v1<-tnet[,i]
-#     for(j in 1:ncol(tnet)){
-#       if(j>i){
-#         v2<-tnet[,j]
-#         ph<-phtest(as.integer(v1),as.integer(v2))
-#         pmat[i,j]<-ph
-#       }
-#     }
-#   }
-#   lt<-lower.tri(pmat)
-#   pmat[lt]=t(pmat)[lt]
-#   diag(pmat)=1
-#   pmat<-matrix(p.adjust(pmat),ncol=ncol(pmat),nrow=nrow(pmat),
-#                dimnames=list(rownames(pmat),colnames(pmat)))           
-#   pmat
-# }
-
 ##-----------------------------------------------------------------------------
 ##build an igraph object from hclust
-hclust2igraph<-function(hc,length.cutoff=NULL){
+hclust2igraph<-function(hc){
   if(class(hc)!="hclust")stop("'hc' should be an 'hclust' object!")
   if(is.null(hc$labels))hc$labels=as.character(sort(hc$order))
+  #options to remove nests
+  rmnodes<-NULL
+  if(!is.null(hc$cutoff)){
+    #remove nests based on length cutoff
+    tmap<-treemap(hc)
+    hcNodes<-tmap$hcNodes
+    hcNests<-hcNodes[hcNodes$type=="nest",]
+    hcEdges<-tmap$hcEdges
+    nestList<-tmap$nest
+    rmnodes<-hcEdges[hcEdges$edgeLength<hc$cutoff,]
+    rmnodes<-unique(rmnodes$parentNode)
+    rmnodes<-hcNodes$hcId[hcNodes$node%in%rmnodes]
+    mergeBlocks=FALSE
+  } else if(!is.null(hc$keep)){
+    #option to assign parent nodes to be preserved
+    ids<-as.numeric(hc$merge)
+    ids<-sort(ids[ids>0])
+    rmnodes<-ids[!ids%in%hc$keep]
+    mergeBlocks=TRUE
+  } else if(!is.null(hc$remove)){
+    #option to assign parent nodes to be removed
+    ids<-as.numeric(hc$merge)
+    ids<-sort(ids[ids>0])
+    rmnodes<-ids[ids%in%hc$remove]
+    mergeBlocks=FALSE
+  }
+  #build igraph and return assigments
+  .hclust2igraph(hc,rmnodes,mergeBlocks)
+}
+##-----------------------------------------------------------------------------
+##build an igraph object from pvclust
+# pvclust2igraph<-function(hc,alpha=0.95,max.only=FALSE){
+#   if(class(hc)!="pvclust")stop("'hc' should be an 'pvclust' object!")
+#   if(is.null(hc$hclust$labels))hc$hclust$labels=as.character(sort(hc$hclust$order))
+#   keep<-pvpick(hc,alpha=alpha,max.only=max.only)$edges
+#   ids<-as.numeric(hc$hclust$merge)
+#   ids<-sort(ids[ids>0])
+#   rmnodes<-ids[!ids%in%keep]
+#   .hclust2igraph(hc$hclust,rmnodes,mergeBlocks=TRUE)
+# }
+##-----------------------------------------------------------------------------
+##wrap-up  for 'hclust2igraph' function
+.hclust2igraph<-function(hc,rmnodes=NULL, mergeBlocks=TRUE){
   #get treemap
   tmap<-treemap(hc)
   hcNodes<-tmap$hcNodes
   hcNests<-hcNodes[hcNodes$type=="nest",]
   hcEdges<-tmap$hcEdges
   nestList<-tmap$nest
-  #update nest names
-  names(nestList)[hcNests$hcId]<-hcNests$node
-  #remove nests based on length cutoff
-  if(!is.null(length.cutoff)){
-    #identify rmnodes
-    rmnodes<-hcEdges[hcEdges$length<length.cutoff,]
-    rmnodes<-rmnodes$childNode[rmnodes$childNode%in%hcNests$node]
+  nestmap<-tmap$nestmap
+  lineage<-tmap$lineage
+  rootid<-tmap$rootid
+  #set nests do be removed
+  if(!is.null(rmnodes) && length(rmnodes)>0){
+    rmnodes<-hcNodes[hcNodes$mergeId%in%rmnodes,]
+    rmnodes<-rmnodes$node[!rmnodes$node==rootid]
     #update hcEdges and nestList
-    hcEdges<-hcEdges.filter1(hcEdges,hcNodes,rmnodes)
-    nestList<-nestList[!names(nestList)%in%rmnodes]
+    if(length(rmnodes)>0){
+      hcEdges<-hcEdges.filter(hcEdges,hcNodes,rmnodes,lineage,rootid,mergeBlocks)
+      nestList<-nestList[names(nestList)%in%hcEdges$parentNode]
+    }
   }
   #build igraph and return assigments
   g<-graph.edgelist(as.matrix(hcEdges[,1:2]), directed=TRUE)
-  #E(g)$edgeWeight<-hcEdges$length
-  tp<-hcEdges$parentHeight-min(hcEdges$parentHeight)
-  E(g)$edgeWeight<-(max(tp)-tp)/max(tp) * 100
+  #E(g)$edgeWeight<-hcEdges$edgeLength
+  #tp<-hcEdges$parentHeight-min(hcEdges$parentHeight)
+  #E(g)$edgeWeight<-(max(tp)-tp)/max(tp) * 100
   E(g)$arrowType<-0
   list(g=g,nest=nestList)
 }
-hcEdges.filter1<-function(hcEdges,hcNodes,rmnodes){
+hcEdges.filter<-function(hcEdges,hcNodes,rmnodes,lineage,rootid, 
+                         mergeBlocks=TRUE){
+  getpar<-function(hcEdges,childNode){
+    idx<-which(hcEdges$childNode==childNode)
+    hcEdges$parentNode[idx]
+  }
+  #update rmnodes with any continous bottom-up struture not in rmnodes
+  if(mergeBlocks){
+    nids<-hcNodes$node[hcNodes$type=="nest"]
+    nids<-nids[!nids%in%rmnodes]
+    for(i in 1:length(nids)){
+      pn<-getpar(hcEdges,nids[i])
+      if(length(pn)>0 && !pn%in%rmnodes && !pn%in%rootid){
+        rmnodes<-c(rmnodes,nids[i])
+      }
+    } 
+  }
+  #update lineage
+  lineage<-lapply(lineage,setdiff,rmnodes)
   #get the correct order
   rmNests<-hcNodes[hcNodes$node%in%rmnodes,]
   rmEdges<-hcEdges[hcEdges$childNode%in%rmnodes,]
   #get filtered hcEdges
   hcEdges<-hcEdges[!hcEdges$childNode%in%rmNests$node,]
   #update parents'ids
-  for(oldid in rmNests$node){
-    newid<-rmEdges$parentNode[which(rmEdges$childNode==oldid)]
-    idx<-which(hcEdges$parentNode==oldid)
-    hcEdges$parentNode[idx]<-newid
+  for(i in 1:nrow(hcEdges)){
+    newpn<-lineage[[hcEdges$childNode[i]]][1]
+    hcEdges$parentNode[i]<-newpn
   }
   rownames(hcEdges)<-NULL
   hcEdges
@@ -1456,8 +1465,134 @@ treemap<-function(hc){
   hcNodes<-rbind(hcl,hcn)
   hcEdges$parentNode<-hcNodes$node[match(hcEdges$parentNode,hcNodes$mergeId)]
   hcEdges$childNode<-hcNodes$node[match(hcEdges$childNode,hcNodes$mergeId)]
-  #---update and return
   obj$hcNodes<-hcNodes;obj$hcEdges<-hcEdges
+  names(obj$nest)<-paste("N",c(1:N),sep="")
+  #---get mest maps (optional)
+  nestmap<-obj$nest
+  nestall<-obj$nest
+  nts<-names(obj$nest)
+  for(i in 1:length(nts)){
+    tp<-unlist(lapply(lapply(obj$nest,"%in%",obj$nest[[i]]),all))
+    tp<-tp[-i]
+    tp<-nts[which(tp)]
+    nestmap[[i]]<-tp
+    nestall[[i]]<-c(nestall[[i]],tp)
+  }
+  obj$nestmap<-nestmap
+  obj$nestall<-nestall
+  #---get node lineage
+  getpar<-function(hcEdges,childNode){
+    idx<-which(hcEdges$childNode==childNode)
+    hcEdges$parentNode[idx]
+  }
+  root<-hcEdges$parentNode[length(hcEdges$parentNode)]
+  lineage<-list()
+  for(i in 1:nrow(obj$hcEdges)){
+    ch<-obj$hcEdges$childNode[i]
+    pn<-obj$hcEdges$parentNode[i]
+    lineage[[ch]]<-pn
+    while(pn!=root){
+      pn<-getpar(obj$hcEdges,pn)
+      lineage[[ch]]<-c(lineage[[ch]],pn)
+    }
+  }
+  obj$lineage<-lineage
+  obj$rootid<-root
   return(obj)
 }
 
+#---------------------------------------------------------------
+#test Cohen's Kappa agreement between Modulon and regulons
+# pkappa<-function (Modulon,Regulon){
+#   ttab<-data.frame(A=Modulon,B=Regulon)
+#   ttab<-table(ttab)
+#   #---get tabs
+#   nc <- ncol(ttab)
+#   ns <- sum(ttab)
+#   weighttab <- matrix(0, nrow = nc, ncol = nc)
+#   diag(weighttab)<-c(1,1)
+#   #---kvalue
+#   agreeP <- sum(ttab * weighttab)/ns
+#   tm1 <- apply(ttab, 1, sum)
+#   tm2 <- apply(ttab, 2, sum)
+#   eij <- outer(tm1, tm2)/ns
+#   chanceP <- sum(eij * weighttab)/ns
+#   kvalue <- (agreeP - chanceP)/(1 - chanceP)
+#   return(kvalue)
+# }
+#test overlap of among regulons in a tnet via phyper function
+# tni.phyper<-function(tnet){
+#   tnet[tnet!=0]=1
+#   tnet<-tnet[rowSums(tnet)>0,]
+#   labs<-colnames(tnet)
+#   pmat<-matrix(NA,ncol=ncol(tnet),nrow=ncol(tnet), dimnames=list(labs, labs))
+#   phtest<-function(c1,c2){
+#     c<-c1+c2
+#     pop<-length(c)
+#     sample1<-sum(c1>0)
+#     sample2<-sum(c2>0)
+#     overlap<-sum(c==2)    
+#     resph<-phyper(overlap, sample1, pop - sample1, sample2, lower.tail=FALSE)
+#     resph
+#   }
+#   for(i in 1:ncol(tnet)){
+#     v1<-tnet[,i]
+#     for(j in 1:ncol(tnet)){
+#       if(j>i){
+#         v2<-tnet[,j]
+#         ph<-phtest(as.integer(v1),as.integer(v2))
+#         pmat[i,j]<-ph
+#       }
+#     }
+#   }
+#   lt<-lower.tri(pmat)
+#   pmat[lt]=t(pmat)[lt]
+#   diag(pmat)=1
+#   pmat<-matrix(p.adjust(pmat),ncol=ncol(pmat),nrow=nrow(pmat),
+#                dimnames=list(rownames(pmat),colnames(pmat)))           
+#   pmat
+# }
+
+# ##-----------------------------------------------------------------------------
+# ##build an igraph object from hclust
+# hclust2igraph<-function(hc,length.cutoff=NULL){
+#   if(class(hc)!="hclust")stop("'hc' should be an 'hclust' object!")
+#   if(is.null(hc$labels))hc$labels=as.character(sort(hc$order))
+#   #get treemap
+#   tmap<-treemap(hc)
+#   hcNodes<-tmap$hcNodes
+#   hcNests<-hcNodes[hcNodes$type=="nest",]
+#   hcEdges<-tmap$hcEdges
+#   nestList<-tmap$nest
+#   #remove nests based on length cutoff
+#   if(!is.null(length.cutoff)){
+#     #identify rmnodes
+#     rmnodes<-hcEdges[hcEdges$edgeLength<length.cutoff,]
+#     rmnodes<-rmnodes$childNode[rmnodes$childNode%in%hcNests$node]
+#     #update hcEdges and nestList
+#     hcEdges<-hcEdges.filter1(hcEdges,hcNodes,rmnodes)
+#     nestList<-nestList[!names(nestList)%in%rmnodes]
+#   }
+#   #build igraph and return assigments
+#   g<-graph.edgelist(as.matrix(hcEdges[,1:2]), directed=TRUE)
+#   #E(g)$edgeWeight<-hcEdges$edgeLength
+#   tp<-hcEdges$parentHeight-min(hcEdges$parentHeight)
+#   E(g)$edgeWeight<-(max(tp)-tp)/max(tp) * 100
+#   E(g)$arrowType<-0
+#   list(g=g,nest=nestList)
+# }
+# hcEdges.filter1<-function(hcEdges,hcNodes,rmnodes){
+#   #get the correct order
+#   rmNests<-hcNodes[hcNodes$node%in%rmnodes,]
+#   rmEdges<-hcEdges[hcEdges$childNode%in%rmnodes,]
+#   #get filtered hcEdges
+#   hcEdges<-hcEdges[!hcEdges$childNode%in%rmNests$node,]
+#   #update parents'ids
+#   for(oldid in rmNests$node){
+#     newid<-rmEdges$parentNode[which(rmEdges$childNode==oldid)]
+#     idx<-which(hcEdges$parentNode==oldid)
+#     hcEdges$parentNode[idx]<-newid
+#   }
+#   rownames(hcEdges)<-NULL
+#   hcEdges
+# }

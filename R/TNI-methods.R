@@ -461,12 +461,12 @@ setMethod(
 ## ......best weighted edge (when verbose=TRUE) or not (when verbose=FALSE).
 ## hcl: an hclust object with TF's IDs
 ## overlap: overlapping nodes used for the Jaccard (options: 'all', 'pos', 'neg')
-
+## TODO: revise 'tnai.checks' for new args!
 setMethod(
   "tni.graph",
   "TNI",
   function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", amapCutoff=NULL, 
-           ntop=NULL, mask=FALSE, hcl=NULL, overlap="all", xlim=c(30,80,5), breaks=NULL, nquant=NULL){
+           ntop=NULL, mask=FALSE, hcl=NULL, overlap="all", xlim=c(30,80,5), nquant=5, breaks=NULL){
     # chech igraph compatibility
     b1<-"package:igraph0" %in% search()
     b2<- "igraph0" %in%  loadedNamespaces()
@@ -483,7 +483,10 @@ setMethod(
     tnai.checks(name="amapFilter",para=amapFilter)
     tnai.checks(name="amapCutoff",para=amapCutoff)
     tnai.checks(name="mask",para=mask)
-    if(!is.null(hcl))gtype="amapDend"
+    if(!is.null(hcl)){
+      gtype="amapDend"
+      tfs=NULL
+    }
     if(gtype=="mmap" || gtype=="mmapDetailed")tnet="dpi"
     if(tnet=="ref"){
       tnet<-object@results$tn.ref
@@ -501,9 +504,11 @@ setMethod(
       tfs<-object@transcriptionFactors[idx]
     }
     if(!is.null(hcl)){
-      if(!all(hcl$labels%in%tfs))
+      if(class(hcl)=="pvclust")hcl<-pvclust2hclust(hcl)
+      if(!all(hcl$labels%in%tfs | hcl$labels%in%names(tfs)))
         stop("all labels in the 'hclust' object should be listed as 'transcriptionFactors'!")
-      tfs<-tfs[tfs%in%hcl$labels]
+      tfs<-tfs[tfs%in%hcl$labels | names(tfs)%in%hcl$labels ]
+      hcl$labels<-tfs
     }
     
     #-----------------------------------------
@@ -648,8 +653,8 @@ setMethod(
       V(g)$nodeAlias<-names(tfs)[idx]
       V(g)$degree<-sz[idx]
       #---set main attribs
-      if(ecount(g)>0)g<-att.sete(g=g, from="weight", to='edgeWidth', nquant=5, xlim=c(1,15,1),roundleg=2)
-      g<-att.setv(g=g, from="degree", to='nodeSize', xlim=c(20,100,1), nquant=5, roundleg=1,title="Regulon size")
+      if(ecount(g)>0)g<-att.sete(g=g, from="weight", to='edgeWidth', nquant=nquant, xlim=c(1,15,1),roundleg=2)
+      g<-att.setv(g=g, from="degree", to='nodeSize', xlim=xlim, nquant=nquant, breaks=breaks, roundleg=1,title="Regulon size")
       V(g)$nodeFontSize<-20
       return(g)
       
@@ -664,12 +669,23 @@ setMethod(
         gg<-hclust2igraph(hcl)
       }
       gg$hcl<-hcl
-      sz<-apply(tnet!=0, 2, sum)
+      #---set alias
       idx<-match(V(gg$g)$name,tfs)
       V(gg$g)$nodeAlias<-names(tfs)[idx]
       V(gg$g)$nodeAlias[is.na(idx)]<-"$hcnode"
+      #---set node degree
+      V(gg$g)$degree<-2
+      sz<-apply(tnet!=0, 2, sum)
       idx<-match(V(gg$g)$name,names(sz))
       V(gg$g)$degree<-sz[idx]
+      #---set nest size
+      V(gg$g)$nestSize<-V(gg$g)$degree
+      nestsz<-sapply(names(gg$nest),function(nest){
+        #length(gg$nest[[nest]]) #..count only TFs
+        sum(rowSums(tnet[,gg$nest[[nest]]]!=0)>=1)
+      })
+      idx<-match(names(nestsz),V(gg$g)$name)
+      V(gg$g)$nestSize[idx]<-nestsz
       #---set main attribs
       gg$g<-att.setv(g=gg$g, from="degree", to='nodeSize', xlim=xlim, breaks=breaks, 
                      nquant=nquant, roundleg=0, title="Regulon size")
@@ -679,10 +695,9 @@ setMethod(
       V(gg$g)$nodeLineColor<-"black"
       E(gg$g)$edgeColor<-"black"
       return(gg)
+      
     }
-    
   }
-  
 )
 ##------------------------------------------------------------------------------
 ##run conditional mutual information analysis

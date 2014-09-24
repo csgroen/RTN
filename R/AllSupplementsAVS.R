@@ -238,7 +238,7 @@ mapvset<-function(vSet,snpnames){
   snpnames <- data.table(x=snpnames, y=1:length(snpnames),key="x")
   y=NULL
   junk<-lapply(1:length(vSet),function(i){
-    tp<-metadata(vSet[[i]])
+    tp<-.mtdata(vSet[[i]])
     mappedMarkers<-list()
     junk<-lapply(1:length(tp$blocks),function(j){
       tpp<-tp$blocks[[j]]
@@ -252,7 +252,14 @@ mapvset<-function(vSet,snpnames){
   })
   vSet
 }
-
+.mtdata<-function(x) {
+  if (is.null(x@metadata) || is.character(x@metadata)){
+    mdt<-list(metadata = x@metadata)
+  } else {
+    mdt<-x@metadata
+  }
+  mdt
+}
 ##-------------------------------------------------------------------------
 ##map ramdom AVS to snpdate (speed-up the permutation step)
 maprset<-function(rSet,snpnames,verbose=TRUE){
@@ -264,7 +271,7 @@ maprset<-function(rSet,snpnames,verbose=TRUE){
     vSet<-rSet[[i]]
     if(verbose) setTxtProgressBar(pb, i/nr)
     junk<-lapply(1:length(vSet),function(i){
-      tp<-metadata(vSet[[i]])
+      tp<-.mtdata(vSet[[i]])
       mappedMarkers<-list()
       junk<-lapply(1:length(tp$blocks),function(j){
         tpp<-tp$blocks[[j]]
@@ -579,9 +586,9 @@ get.eqtldist<-function(vSet,annot,gxdata,snpdata,pValueCutoff=0.01){
     subject<-annot[[chr]]
     if(!is.null(subject)){
       overlaps<-findOverlaps(query,subject)
-      geneList<-metadata(subject)$mappedAnnotations
+      geneList<-.mtdata(subject)$mappedAnnotations
       res<-sapply(1:length(query@metadata$markers),function(j){
-        snpList<-metadata(query)$mappedMarkers[[j]]
+        snpList<-.mtdata(query)$mappedMarkers[[j]]
         ov<-overlaps@queryHits%in%which(query@metadata$index==j)
         if(any(ov) && length(snpList)>0){
           ov<-unique(overlaps@subjectHits[ov])
@@ -644,9 +651,9 @@ eqtlTest<-function(geneList,snpList,gxdata,snpdata){
 #     subject<-annot[[chr]]
 #     if(!is.null(subject)){
 #       overlaps<-findOverlaps(query,subject)
-#       geneList<-metadata(subject)$mappedAnnotations
+#       geneList<-.mtdata(subject)$mappedAnnotations
 #       res<-lapply(1:length(query@metadata$markers),function(j){
-#         snpList<-metadata(query)$mappedMarkers[[j]]
+#         snpList<-.mtdata(query)$mappedMarkers[[j]]
 #         ov<-overlaps@queryHits%in%which(query@metadata$index==j)
 #         ov<-unique(overlaps@subjectHits[ov])
 #         gList<-geneList[ov]
@@ -715,9 +722,9 @@ eqtlExtractFull<-function(vSet,annot,gxdata,snpdata){
     subject<-annot[[chr]]
     if(!is.null(subject)){
       overlaps<-findOverlaps(query,subject)
-      geneList<-metadata(subject)$mappedAnnotations
+      geneList<-.mtdata(subject)$mappedAnnotations
       res<-lapply(1:length(query@metadata$markers),function(j){
-        snpList<-metadata(query)$mappedMarkers[[j]]
+        snpList<-.mtdata(query)$mappedMarkers[[j]]
         ov<-overlaps@queryHits%in%which(query@metadata$index==j)
         ov<-unique(overlaps@subjectHits[ov])
         gList<-geneList[ov]
@@ -826,10 +833,10 @@ eqtlExtractAnova<-function(vSet,annot,gxdata,snpdata){
     subject<-annot[[chr]]
     if(!is.null(subject)){
       overlaps<-findOverlaps(query,subject)
-      geneList<-metadata(subject)$mappedAnnotations
+      geneList<-.mtdata(subject)$mappedAnnotations
       resfit<-NULL
       junk<-lapply(1:length(query@metadata$markers),function(j){
-        snpList<-metadata(query)$mappedMarkers[[j]]
+        snpList<-.mtdata(query)$mappedMarkers[[j]]
         ov<-overlaps@queryHits%in%which(query@metadata$index==j)
         ov<-unique(overlaps@subjectHits[ov])
         gList<-geneList[ov]
@@ -930,7 +937,7 @@ getUniverseCounts1<-function(vSet,annotation,maxgap){
     query<-vSet[[i]]
     subject<-annot[[chr]]
     if(!is.null(subject)){
-      geneList<-metadata(subject)$mappedAnnotations
+      geneList<-.mtdata(subject)$mappedAnnotations
       res<-sapply(1:length(query@metadata$markers),function(j){
         gList<-geneList[overlapsAny(subject,query[query@metadata$index==j])]
         length(gList)
@@ -966,7 +973,7 @@ getUniverseCounts2<-function(vSet,annotation,maxgap){
     query<-vSet[[i]]
     subject<-annot[[chr]]
     if(!is.null(subject)){
-      geneList<-metadata(subject)$mappedAnnotations
+      geneList<-.mtdata(subject)$mappedAnnotations
       res<-sapply(1:length(query@metadata$markers),function(j){
         gList<-geneList[overlapsAny(subject,query[query@metadata$index==j])]
         length(gList)

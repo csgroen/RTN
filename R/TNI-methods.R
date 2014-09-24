@@ -465,8 +465,9 @@ setMethod(
 setMethod(
   "tni.graph",
   "TNI",
-  function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", amapCutoff=NULL, 
-           ntop=NULL, mask=FALSE, hcl=NULL, overlap="all", xlim=c(30,80,5), nquant=5, breaks=NULL){
+  function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, 
+           amapFilter="quantile", amapCutoff=NULL, ntop=NULL, mask=FALSE, 
+           hcl=NULL, overlap="all", xlim=c(30,80,5), nquant=5, breaks=NULL){
     # chech igraph compatibility
     b1<-"package:igraph0" %in% search()
     b2<- "igraph0" %in%  loadedNamespaces()
@@ -483,17 +484,26 @@ setMethod(
     tnai.checks(name="amapFilter",para=amapFilter)
     tnai.checks(name="amapCutoff",para=amapCutoff)
     tnai.checks(name="mask",para=mask)
-    if(!is.null(hcl)){
-      gtype="amapDend"
-      tfs=NULL
-    }
+    #---
     if(gtype=="mmap" || gtype=="mmapDetailed")tnet="dpi"
     if(tnet=="ref"){
       tnet<-object@results$tn.ref
     } else {
       tnet<-object@results$tn.dpi
     }
-    if(is.null(tfs)){
+    #---
+    if(!is.null(hcl)){
+      gtype="amapDend"
+      tfs<-object@transcriptionFactors
+      if(!all(hcl$labels%in%tfs | hcl$labels%in%names(tfs)))
+        stop("all labels in the 'hclust' object should be listed as 'transcriptionFactors'!")
+      idx1<-match(hcl$labels,tfs)
+      idx2<-match(hcl$labels,names(tfs))
+      check<-which(is.na(idx1))
+      idx1[check]<-idx2[check]
+      tfs<-tfs[idx1]
+      hcl$labels<-tfs
+    } else if(is.null(tfs)){
       tfs<-object@transcriptionFactors
       minsz<-colnames(tnet)[colSums(tnet!=0)>=minRegulonSize]
       tfs<-tfs[tfs%in%minsz]
@@ -502,13 +512,6 @@ setMethod(
       idx<-which(names(object@transcriptionFactors)%in%tfs | object@transcriptionFactors%in%tfs)
       if(length(idx)==0)stop("NOTE: input 'tfs' contains no useful data!\n")
       tfs<-object@transcriptionFactors[idx]
-    }
-    if(!is.null(hcl)){
-      if(class(hcl)=="pvclust")hcl<-pvclust2hclust(hcl)
-      if(!all(hcl$labels%in%tfs | hcl$labels%in%names(tfs)))
-        stop("all labels in the 'hclust' object should be listed as 'transcriptionFactors'!")
-      tfs<-tfs[tfs%in%hcl$labels | names(tfs)%in%hcl$labels ]
-      hcl$labels<-tfs
     }
     
     #-----------------------------------------

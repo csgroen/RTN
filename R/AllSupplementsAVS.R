@@ -1000,64 +1000,82 @@ vseformat<-function(resavs, pValueCutoff=0.01, boxcox=TRUE){
     resavs[[i]]$mtally
   })
   #get mtally (transformed/normalized if possible)
+  isnormlzd<-rep(FALSE,length(resavs))
+  names(isnormlzd)<-names(resavs)
   nulldist<-sapply(names(resavs),function(i){
-    tp<-c(resavs[[i]]$nulldist,sum(resavs[[i]]$mtally))
-    if(median(tp)>0){
+    null<-resavs[[i]]$nulldist
+    obs<-sum(resavs[[i]]$mtally)
+    tp<-c(null,obs)
+    if(sd(null)>0 && median(null)>0){
+      isnormlzd[i]<<-TRUE
       tp<-(tp-median(tp))/sd(tp)
     }
     tp
   })
-  escore<-nulldist[nrow(nulldist),]
+  score<-nulldist[nrow(nulldist),]
   nulldist<-nulldist[-nrow(nulldist),,drop=FALSE]
   #----get stats
-  pvals <- pnorm(escore, lower.tail=FALSE)
+  pvals <- pnorm(score, lower.tail=FALSE)
   if(is.null(ntests))ntests<-length(pvals)
   ci <- qnorm(1-(pValueCutoff/ntests))
   #----powerTransform
   if(boxcox){
     ptdist<-sapply(1:ncol(nulldist),function(i){
-      ndat<-nulldist[,i]
-      nnull<-length(ndat)
-      edat<-escore[i]
-      nd<-as.integer(nnull*.05)
-      nd<-max(nd,10)
-      qt<-quantile(ndat,probs=seq(0,1,length.out=nd),names=FALSE)
-      checkd<-!all(ndat>=0) && min(qt)<max(qt)
-      if(checkd && shapiro.test(qt)$p.value<0.05){
-        minval<-min(c(nulldist[,i],escore[i]))
+      null<-nulldist[,i]
+      obs<-score[i] 
+      if(isnormlzd[i] && shtest(null)){
+        minval<-min(c(nulldist[,i],score[i]))
         minval<-ifelse(minval<=0,abs(minval)+1,minval)
-        ndat<-ndat+minval
-        edat<-edat+minval
-        l<-coef(powerTransform(c(ndat,edat)), round=TRUE)
-        ptdat<-bcPower(c(ndat,edat),l)
+        nullm<-null+minval
+        obsm<-obs+minval
+        l<-coef(powerTransform(c(nullm,obsm)), round=TRUE)
+        ptdat<-bcPower(c(nullm,obsm),l)
         ptdat<-(ptdat-median(ptdat))/sd(ptdat)
         return(ptdat)
       } else {
-        return(c(ndat,edat))
+        return(c(null,obs))
       }
     })
-    colnames(ptdist)<-names(escore)
-    escore<-ptdist[nrow(ptdist),]
+    colnames(ptdist)<-names(score)
+    score<-ptdist[nrow(ptdist),]
     nulldist<-ptdist[-nrow(ptdist),,drop=FALSE]
-    pvals <- pnorm(escore, lower.tail=FALSE)
+    pvals<-pnorm(score, lower.tail=FALSE)
+    # (NEW) correct distributions not able of transformation and
+    # obvious non-significant cases introduced by distortions of 
+    # very sparse null distributions or absence of observations
+    # in the mapping tally
+    for (i in names(isnormlzd)){
+      if(!isnormlzd[i]){
+        p <- (1 + sum(score[i]<=nulldist[,i]) ) / (1 + nrow(nulldist))
+        p <- min(0.5,p)
+        pvals[i]<-p
+        score[i]<-qnorm(p,lower.tail=FALSE)
+      }
+    }
   }
-  #----order
+  #----reorder
   if(length(groups)>1){
     gs<-unique(groups)
     ord<-lapply(1:length(gs),function(i){
-      idx<-sort.list(escore[groups==i],decreasing=TRUE)
-      labs<-names(escore)[groups==i]
+      idx<-sort.list(score[groups==i],decreasing=TRUE)
+      labs<-names(score)[groups==i]
       labs[idx]
     })
     ord<-unlist(ord)
-    escore<-escore[ord]
+    score<-score[ord]
     pvals<-pvals[ord]
     mtally<-mtally[,ord]
     nulldist<-nulldist[,ord]
   }
-  return(list(mtally=mtally,nulldist=nulldist,escore=escore,pvalue=pvals,ci=ci))
+  return(list(mtally=mtally,nulldist=nulldist,score=score,pvalue=pvals,ci=ci))
 }
-
+shtest<-function(null){
+  nnull<-length(null)
+  nd<-as.integer(nnull*0.05)
+  nd<-max(nd,10)
+  qt<-quantile(null,probs=seq(0,1,length.out=nd),names=FALSE)
+  shapiro.test(qt)$p.value<0.05
+}
 ##-------------------------------------------------------------------------
 ##check if snow cluster is loaded
 isParallel<-function(){

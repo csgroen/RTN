@@ -52,6 +52,9 @@ avs.plot2<-function(object, what="evse", fname=what, width=14, height=2.5,
   
   if( !is.null(object@results[[what]]) && object@status[toupper(what)]=="[x]" ){
     stats<-object@results$stats[[what]]
+    if(any(names(stats)=="escore")){
+      stats$score<-stats$escore #just to correct label!
+    }
     ucounts<-object@results$counts[[what]]
     avsplot2(stats=stats,ucounts=ucounts,fname=fname, height=height, width=width, rmargin=rmargin, 
              bxseq=bxseq, ylab=ylab, xlab=xlab, label=toupper(what),decreasing=decreasing)
@@ -99,8 +102,8 @@ avsplot1<-function(mtally,nulldist,fname,ylab, xlab, nsplit, maxy,
 
 #-------------------------------------------------------------------------
 avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1, 
-                      bxseq=seq(-4,8,2),ylab=ylab, xlab="Clusters of risk-associated and linked SNPs",
-                      label="EVSE",decreasing=TRUE){
+                   bxseq=seq(-4,8,2),ylab=ylab, xlab="Clusters of risk-associated and linked SNPs",
+                   label="EVSE",decreasing=TRUE){
   #---shortcut to set left margin
   lmargin=0.3
   #---universeCounts
@@ -123,12 +126,12 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
   #----stats
   nper<-nrow(nulldist)
   pvalue<-stats$pvalue
-  escore<-stats$escore
+  score<-stats$score
   ci<-stats$ci
   #----sort by score (untie with mtally)
   tp<-colSums(mtally);tp<-tp/sum(tp)
-  idx<-sort.list(escore+tp,decreasing=!decreasing)
-  escore<-escore[idx]
+  idx<-sort.list(score+tp,decreasing=!decreasing)
+  score<-score[idx]
   mtally<-mtally[,idx,drop=FALSE]
   nulldist<-nulldist[,idx,drop=FALSE]
   mtl<-mtl[idx]
@@ -162,8 +165,8 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
   mtext(tx, side=3, line=2, cex=0.75, las=1, adj=0, at=-0.5)
   mtext("Bonferroni", side=3, line=1.2, cex=0.75, las=1, col="gray75", adj=0, at=-0.5)
   #----add stats
-  pcol<-ifelse(escore>ci,"red","black")
-  points(x=escore,y=at.y,col=pcol,pch=18,cex=1)
+  pcol<-ifelse(score>ci,"red","black")
+  points(x=score,y=at.y,col=pcol,pch=18,cex=1)
   pval<- round(-log10(pvalue),2)
   mtext(format(pval), side=2, at=at.y, line=0.45, cex=0.75, las=2)
   if(cctype){
@@ -181,7 +184,7 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
   par( mai = c( 0.4, 0.0, 1.5, 0.7 + binsp ) )
   mat.tally<-mtally
   mat.tally[,]<-as.numeric(mtally)
-  mat.tally[,escore>ci]<-2
+  mat.tally[,score>ci]<-2
   mat.tally[!mtally]<-NA
   nc<-(1/nc)
   #---set cols for 1 or 2 levels
@@ -228,13 +231,13 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
 #   #----stats
 #   nper<-nrow(nulldist)
 #   pvalue<-stats$pvalue
-#   escore<-stats$escore
+#   score<-stats$score
 #   ci<-stats$ci
 #   
 #   #----sort by score (untye with mtally)
 #   tp<-colSums(mtally);tp<-tp/sum(tp)
-#   idx<-sort.list(escore+tp,decreasing=!decreasing)
-#   escore<-escore[idx]
+#   idx<-sort.list(score+tp,decreasing=!decreasing)
+#   score<-score[idx]
 #   mtally<-mtally[,idx]
 #   nulldist<-nulldist[,idx]
 #   mtl<-mtl[idx]
@@ -259,8 +262,8 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
 #   mtext(tx, side=3, line=2, cex=0.75, las=1, adj=0, at=-0.5)
 #   mtext("Bonferroni", side=3, line=1.2, cex=0.75, las=1, col="gray75", adj=0, at=-0.5)
 #   #----add stats
-#   pcol<-ifelse(escore>ci,"red","black")
-#   points(x=escore,y=at.y,col=pcol,pch=18,cex=1)
+#   pcol<-ifelse(score>ci,"red","black")
+#   points(x=score,y=at.y,col=pcol,pch=18,cex=1)
 #   pval<- round(-log10(pvalue),2)
 #   mtext(pval, side=2, at=at.y, line=0.45, cex=0.75, las=2)
 #   mtext(colnames(nulldist), side=2, at=at.y, line=8.5, cex=0.75, las=2, adj=0)
@@ -272,7 +275,7 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
 #   #par(mai=c(0.4,0,1.5,1))
 #   mat.tally<-mtally
 #   mat.tally[,]<-as.numeric(mtally)
-#   mat.tally[,escore>ci]<-2
+#   mat.tally[,score>ci]<-2
 #   mat.tally[!mtally]<-NA
 #   nc<-(1/nc)
 #   #---set cols for 1 or 2 levels

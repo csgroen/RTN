@@ -384,7 +384,7 @@ tnai.checks <- function(name, para) {
   }
   else if(name=="hits") {
     if(!is.null(para)){
-      if(!is.vector(para) || length(para)==0 )
+      if(!is.character(para) || length(para)==0 || !is.vector(para))
         stop("'hits' should be a character vector with length >0 !",call.=FALSE)      
     }
   }

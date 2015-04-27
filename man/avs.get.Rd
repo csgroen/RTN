@@ -38,8 +38,8 @@ Mauro Castro
 \examples{
 
 \dontrun{
-#This example requires the RTNdata package!
-library(RTNdata)
+#This example requires the RTNdata package! (currently available under request)
+library(RTNdata.LDrel27)
 data(bcarisk)
 avs <- new("AVS", markers=bcarisk$rsid)
 avs <- avs.preprocess(avs, randomSetSize=100)

@@ -77,9 +77,9 @@ rtni<-tni.bootstrap(rtni)
 
 # parallel version with SNOW package!
 library(snow)
-options(cluster=makeCluster(4, "SOCK"))
-rtni<-tni.permutation(rtni,parChunks=50)
-rtni<-tni.bootstrap(rtni,parChunks=10)
+options(cluster=makeCluster(3, "SOCK"))
+rtni<-tni.permutation(rtni)
+rtni<-tni.bootstrap(rtni)
 stopCluster(getOption("cluster"))
 }
 }

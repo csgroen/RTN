@@ -42,17 +42,18 @@ sortAnnotation<-function(annotation){
 
 ##-------------------------------------------------------------------------
 ## build AVS
-buildAVS<-function(mysnps, reldata="rel27CEU-NCBIB36", ldfilter="DprimeLOD", verbose=TRUE){
+buildAVS<-function(mysnps, reldata="RTNdata.LDrel27", ldfilter="DprimeLOD", verbose=TRUE){
+  #set valid chroms
   chrs<-c(paste("chr",1:22,sep=""),"chrX")
-  if(reldata=="rel27CEU-NCBIB36"){
-    if(verbose) cat("Building AVS from HapMap LD data (CEU, rel #27, NCBI B36)...\n")
+  if(verbose){
+    if(reldata=="RTNdata.LDrel27") cat("Building AVS from HapMap LD data (CEU, rel #27, NCBI B36)...\n")
   }
   variantSet<-list()
   for(chr in chrs){
     snps<-mysnps[mysnps$chrom==chr,,drop=FALSE]
     if(verbose) cat("...",nrow(snps)," marker(s) from ",chr,"!\n",sep="")
     if(nrow(snps)>0){
-      ld_data<-getldata(chr,ldfilter)
+      ld_data<-getldata(chr,ldfilter, package=reldata)
       marker1<-data.table(marker=ld_data$marker1,ord=1:nrow(ld_data))
       marker2<-data.table(marker=ld_data$marker2,ord=1:nrow(ld_data))
       setkey(marker1,'marker')
@@ -110,16 +111,16 @@ check.colinked<-function(variantSet, verbose=TRUE){
 ##-------------------------------------------------------------------------
 ## build random AVS
 #for(i in 1:length(variantSet))print(length(variantSet[[i]]))
-buildRandomAVS<-function(variantSet, nrand=100, reldata="rel27CEU-NCBIB36", ldfilter="DprimeLOD", snpop=NULL, verbose=TRUE){
+buildRandomAVS<-function(variantSet, nrand=100, reldata="RTNdata.LDrel27", ldfilter="DprimeLOD", snpop=NULL, verbose=TRUE){
   #set valid chroms
   chrs<-c(paste("chr",1:22,sep=""),"chrX")
-  #get HapMap
-  if(reldata=="rel27CEU-NCBIB36"){
-    if(verbose) cat("Building random AVS from HapMap LD data (CEU, rel #27, NCBI B36)...\n")
-    data('popsnps.hg18', envir=environment())
-    popsnps<-get("popsnps")
-    popsnps<-popsnps[popsnps$chrom%in%chrs,]
+  if(verbose){
+    if(reldata=="RTNdata.LDrel27") cat("Building matched random AVS from HapMap LD data (CEU, rel #27, NCBI B36)...\n")
   }
+  #get popsnps
+  data('popsnps', package=reldata, envir=environment())
+  popsnps<-get("popsnps")
+  popsnps<-popsnps[popsnps$chrom%in%chrs,]
   #get all markers from the variantSet
   vset<-getMarkers.vset(variantSet,TRUE)
   #filter popsnps
@@ -141,10 +142,11 @@ buildRandomAVS<-function(variantSet, nrand=100, reldata="rel27CEU-NCBIB36", ldfi
     sample.int(n=nrow(popsnps),size=length(vset))
   })
   #---build randomSet by chrom
+  if(verbose) cat("Extracting random sets...\n")
   randomSet<-list()
   for(chr in chrs){
     if(verbose) cat("",chr,"\n",sep="")
-    ld_data<-getldata(chr,ldfilter)
+    ld_data<-getldata(chr,ldfilter, package=reldata)
     marker1<-data.table(marker=ld_data$marker1,ord=1:nrow(ld_data))
     marker2<-data.table(marker=ld_data$marker2,ord=1:nrow(ld_data))
     setkey(marker1,'marker')
@@ -290,14 +292,10 @@ maprset<-function(rSet,snpnames,verbose=TRUE){
 
 ##-------------------------------------------------------------------------
 ##get rs# markers from internal dataset
-getmarkers<-function(markers,reldata="rel27CEU-NCBIB36"){
-  if(reldata=="rel27CEU-NCBIB36"){
-    data('popsnps.hg18', envir=environment())
-    popsnps<-get("popsnps")
-    markers<-popsnps[popsnps$rsid%in%markers,,drop=FALSE]
-  } else {
-    #eventually, other LD dataset!
-  }
+getmarkers<-function(markers,reldata="RTNdata.LDrel27"){
+  data('popsnps', package=reldata, envir=environment())
+  popsnps<-get("popsnps")
+  markers<-popsnps[popsnps$rsid%in%markers,,drop=FALSE]
   return(markers)
 }
 
@@ -535,15 +533,13 @@ evsea<-function(vSet, rSet, annot, gxdata, snpdata, pValueCutoff=0.01,verbose=TR
     snow::clusterExport(cl, list("get.eqtldist","eqtlTest","IRanges","overlapsAny","findOverlaps","ff"),
                         envir=environment())
     resrset<-parSapply(cl, 1:length(rSet), function(i) {
-      res<-get.eqtldist(rSet[[i]], annot, gxdata, snpdata, pValueCutoff)
-      sum(res)
+      sum(get.eqtldist(rSet[[i]], annot, gxdata, snpdata, pValueCutoff))
     })
   } else {
     if(verbose) pb <- txtProgressBar(style=3)
     resrset<-sapply(1:length(rSet),function(i){
       if(verbose) setTxtProgressBar(pb, i/length(rSet))
-      res<-get.eqtldist(rSet[[i]], annot, gxdata, snpdata, pValueCutoff)
-      sum(res)
+      sum(get.eqtldist(rSet[[i]], annot, gxdata, snpdata, pValueCutoff))
     })
     if(verbose)close(pb)
   }
@@ -1028,6 +1024,7 @@ vseformat<-function(resavs, pValueCutoff=0.01, boxcox=TRUE){
         minval<-ifelse(minval<=0,abs(minval)+1,minval)
         nullm<-null+minval
         obsm<-obs+minval
+        obsm<-round(obsm,digits=5)
         l<-coef(powerTransform(c(nullm,obsm)), round=TRUE)
         ptdat<-bcPower(c(nullm,obsm),l)
         ptdat<-(ptdat-median(ptdat))/sd(ptdat)
@@ -1094,31 +1091,31 @@ isParallel<-function(){
 
 ##-------------------------------------------------------------------------
 ## get ld data from RTNdata
-getldata<-function(chrom="chr22",ldfilter="DprimeLOD"){
+getldata<-function(chrom="chr22",ldfilter="DprimeLOD", package="RTNdata.LDrel27"){
   chrs<-c(paste("chr",1:22,sep=""),"chrX")
   if(chrom==chrs[1]){data('ldatachr1', envir=environment());ldata<-get("ldatachr1")
-  } else if(chrom==chrs[2]){data('ldatachr2', envir=environment());ldata<-get("ldatachr2")
-  } else if(chrom==chrs[3]){data('ldatachr3', envir=environment());ldata<-get("ldatachr3")
-  } else if(chrom==chrs[4]){data('ldatachr4', envir=environment());ldata<-get("ldatachr4")
-  } else if(chrom==chrs[5]){data('ldatachr5', envir=environment());ldata<-get("ldatachr5")
-  } else if(chrom==chrs[6]){data('ldatachr6', envir=environment());ldata<-get("ldatachr6")
-  } else if(chrom==chrs[7]){data('ldatachr7', envir=environment());ldata<-get("ldatachr7")
-  } else if(chrom==chrs[8]){data('ldatachr8', envir=environment());ldata<-get("ldatachr8")
-  } else if(chrom==chrs[9]){data('ldatachr9', envir=environment());ldata<-get("ldatachr9")
-  } else if(chrom==chrs[10]){data('ldatachr10', envir=environment());ldata<-get("ldatachr10")
-  } else if(chrom==chrs[11]){data('ldatachr11', envir=environment());ldata<-get("ldatachr11")
-  } else if(chrom==chrs[12]){data('ldatachr12', envir=environment());ldata<-get("ldatachr12")
-  } else if(chrom==chrs[13]){data('ldatachr13', envir=environment());ldata<-get("ldatachr13")
-  } else if(chrom==chrs[14]){data('ldatachr14', envir=environment());ldata<-get("ldatachr14")
-  } else if(chrom==chrs[15]){data('ldatachr15', envir=environment());ldata<-get("ldatachr15")
-  } else if(chrom==chrs[16]){data('ldatachr16', envir=environment());ldata<-get("ldatachr16")
-  } else if(chrom==chrs[17]){data('ldatachr17', envir=environment());ldata<-get("ldatachr17")
-  } else if(chrom==chrs[18]){data('ldatachr18', envir=environment());ldata<-get("ldatachr18")
-  } else if(chrom==chrs[19]){data('ldatachr19', envir=environment());ldata<-get("ldatachr19")
-  } else if(chrom==chrs[20]){data('ldatachr20', envir=environment());ldata<-get("ldatachr20")
-  } else if(chrom==chrs[21]){data('ldatachr21', envir=environment());ldata<-get("ldatachr21")
-  } else if(chrom==chrs[22]){data('ldatachr22', envir=environment());ldata<-get("ldatachr22")
-  } else if(chrom==chrs[23]){data('ldatachrX', envir=environment());ldata<-get("ldatachrX")
+  } else if(chrom==chrs[2]){data('ldatachr2', package=package, envir=environment());ldata<-get("ldatachr2")
+  } else if(chrom==chrs[3]){data('ldatachr3', package=package, envir=environment());ldata<-get("ldatachr3")
+  } else if(chrom==chrs[4]){data('ldatachr4', package=package, envir=environment());ldata<-get("ldatachr4")
+  } else if(chrom==chrs[5]){data('ldatachr5', package=package, envir=environment());ldata<-get("ldatachr5")
+  } else if(chrom==chrs[6]){data('ldatachr6', package=package, envir=environment());ldata<-get("ldatachr6")
+  } else if(chrom==chrs[7]){data('ldatachr7', package=package, envir=environment());ldata<-get("ldatachr7")
+  } else if(chrom==chrs[8]){data('ldatachr8', package=package, envir=environment());ldata<-get("ldatachr8")
+  } else if(chrom==chrs[9]){data('ldatachr9', package=package, envir=environment());ldata<-get("ldatachr9")
+  } else if(chrom==chrs[10]){data('ldatachr10', package=package, envir=environment());ldata<-get("ldatachr10")
+  } else if(chrom==chrs[11]){data('ldatachr11', package=package, envir=environment());ldata<-get("ldatachr11")
+  } else if(chrom==chrs[12]){data('ldatachr12', package=package, envir=environment());ldata<-get("ldatachr12")
+  } else if(chrom==chrs[13]){data('ldatachr13', package=package, envir=environment());ldata<-get("ldatachr13")
+  } else if(chrom==chrs[14]){data('ldatachr14', package=package, envir=environment());ldata<-get("ldatachr14")
+  } else if(chrom==chrs[15]){data('ldatachr15', package=package, envir=environment());ldata<-get("ldatachr15")
+  } else if(chrom==chrs[16]){data('ldatachr16', package=package, envir=environment());ldata<-get("ldatachr16")
+  } else if(chrom==chrs[17]){data('ldatachr17', package=package, envir=environment());ldata<-get("ldatachr17")
+  } else if(chrom==chrs[18]){data('ldatachr18', package=package, envir=environment());ldata<-get("ldatachr18")
+  } else if(chrom==chrs[19]){data('ldatachr19', package=package, envir=environment());ldata<-get("ldatachr19")
+  } else if(chrom==chrs[20]){data('ldatachr20', package=package, envir=environment());ldata<-get("ldatachr20")
+  } else if(chrom==chrs[21]){data('ldatachr21', package=package, envir=environment());ldata<-get("ldatachr21")
+  } else if(chrom==chrs[22]){data('ldatachr22', package=package, envir=environment());ldata<-get("ldatachr22")
+  } else if(chrom==chrs[23]){data('ldatachrX', package=package, envir=environment());ldata<-get("ldatachrX")
   }
   if(ldfilter=="DprimeLOD"){
     ldata<-ldata[ldata$DPLOD>0,]

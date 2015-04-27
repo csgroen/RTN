@@ -8,7 +8,7 @@ This is a generic function.
 }
 
 \usage{
-avs.preprocess(object, nrand=1000, mergeColinked=TRUE, reldata="rel27CEU-NCBIB36", 
+avs.preprocess(object, nrand=1000, mergeColinked=TRUE, reldata="RTNdata.LDrel27", 
 ldfilter="DprimeLOD", snpop=NULL, verbose=TRUE)
 }
 
@@ -26,7 +26,7 @@ present in more than one cluster in the AVS (when mergeColinked=TRUE) or
 not (when mergeColinked=FALSE).
 }
 \item{reldata}{
-a single character value specifying the the HapMap Linkage Disequilibrium data used to build the associated variant set. Current option is release "rel27CEU-NCBIB36" (for additional details see the RTNdata package).
+a single character value specifying the RTNdata package used to build the associated variant set. Current option is is "RTNdata.LDrel27" (for additional details on the HapMap Linkage Disequilibrium data, see the RTNdata package documentation).
 }
 \item{ldfilter}{
 a single character value specifying the parameter used to filter the HapMap Linkage Disequilibrium data. Current options are "DprimeLOD" and "Rsquare" (for additional details see the RTNdata package).
@@ -49,9 +49,8 @@ or not (when verbose=FALSE).
 \examples{
 
 \dontrun{
-# This example requires the RTNdata package!
-# RTNdata is currently available under request <mauro.a.castro at gmail.com>
-library(RTNdata)
+#This example requires the RTNdata package! (currently available under request)
+library(RTNdata.LDrel27)
 data(bcarisk)
 avs <- new("AVS", markers=bcarisk$rsid)
 avs <- avs.preprocess(avs, nrand=100)

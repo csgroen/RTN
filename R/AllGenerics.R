@@ -67,7 +67,7 @@ setGeneric("tna.get",
              standardGeneric("tna.get"), package="RTN")
 ##-------------------------------------------------------------------------
 setGeneric("avs.preprocess",
-           function(object, nrand=1000, mergeColinked=TRUE, reldata="rel27CEU-NCBIB36", 
+           function(object, nrand=1000, mergeColinked=TRUE, reldata="RTNdata.LDrel27", 
                     ldfilter="DprimeLOD", snpop=NULL, verbose=TRUE)
              standardGeneric("avs.preprocess"), package="RTN")
 setGeneric("avs.vse",

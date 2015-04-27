@@ -579,14 +579,26 @@ setMethod(
     }
     listOfRegulonsAndMode<-listOfRegulonsAndMode[tfs]
     
+    ##-----remove partial regs, below the minRegulonSize
+    for(nm in names(listOfRegulonsAndMode)){
+      reg<-listOfRegulonsAndMode[[nm]]
+      if(sum(reg<0)<minRegulonSize){
+        reg<-reg[reg>0]
+      }
+      if(sum(reg>0)<minRegulonSize){
+        reg<-reg[reg<0]
+      } 
+      listOfRegulonsAndMode[[nm]]<-reg
+    }
+
     ##-----check regulon size
     gs.size <- unlist(lapply(listOfRegulonsAndMode, function(reg){
-      min(sum(reg>0),sum(reg<0))
+      max(sum(reg>0),sum(reg<0))
     }))
     object@summary$rgc[,"above.min.size"]<-sum(gs.size>minRegulonSize)
     ##-----stop when no subset passes the size requirement
     if(all(gs.size<minRegulonSize)){
-      tp<-" overlapped genes with the universe!\n The largest number of overlapped genes is: "
+      tp<-" overlapped genes with the universe!\n The largest number of overlapping genes is: "
       stop(paste("NOTE: no partial regulon has minimum >= ", minRegulonSize, tp, max(gs.size), sep=""))
     }
     ##-----get filtered list
@@ -1671,7 +1683,7 @@ run.shadow <- function(collectionsOfPairsR1, collectionsOfPairsR2, labpair, phen
   }, error=function(e){ FALSE 
   })
   if( b1 && b2) {
-    if(verbose)cat("-Performing shadow analysis (parallel version - ProgressBar not available)...\n")
+    if(verbose)cat("-Performing shadow analysis (parallel version - ProgressBar disabled)...\n")
   } else {
     if(verbose)cat("-Performing shadow analysis...\n")
   }

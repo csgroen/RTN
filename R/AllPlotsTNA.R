@@ -270,8 +270,8 @@ gsplot1 <- function(runningScore, enrichmentScore, positions, adjpv,
 ##------------------------------------------------------------------------------
 ##Plot 2-tailed enrichment analysis from TNA objects.
 tna.plot.gsea2<-function(object, labPheno="tna", file=labPheno, filepath=".", regulon.order="size", 
-                         ntop=NULL, tfs=NULL, ylimPanels=c(-1.0,3.0,-0.5,0.5), heightPanels=c(2.0,0.8,5.0), 
-                         width=3.5, height=3.8, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
+                         ntop=NULL, tfs=NULL, ylimPanels=c(-3.0,3.0,-0.5,0.5), heightPanels=c(2.0,0.8,5.0), 
+                         width=2.7, height=3.0, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
                          xlab="Position in the ranked list of genes", 
                          alpha=1.0, sparsity=10, autoformat=TRUE, ...) {
   #checks
@@ -338,7 +338,7 @@ tna.plot.gsea2<-function(object, labPheno="tna", file=labPheno, filepath=".", re
 plot.gsea2<-function(resgsea, rgcs, phenotype, nPermutations, exponent,
                      labPheno="tna", file=labPheno, filepath=".", regulon.order="Regulon.Size", 
                      ntop=NULL, tfs=NULL, ylimPanels=c(-1.0,3.0,-0.5,0.5), heightPanels=c(1.5,0.7,5.0), 
-                     width=4.5, height=4, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
+                     width=4, height=3.5, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
                      xlab="Position in the ranked list of genes", alpha=1.0, 
                      sparsity=10, autoformat=TRUE, ...) {
   ##return valid arg
@@ -457,7 +457,7 @@ gsplot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enrichm
   positions[positions==-1]=1
   #set text size levels
   cexlev=c(1.3,1.2,1.1,0.9,0.8)
-  cexlev=c(1.4,1.2,1.2,1.0,0.8)
+  cexlev=c(1.1,1.0,1.0,1.0,0.9)
   #set colors
   ng<-ncol(positions)
   get.alpha<-function (colour,alpha=1.0) {
@@ -484,26 +484,27 @@ gsplot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enrichm
   # plot1
   par(family="Times")
   if(heightPanels[1]>0){
-    xlim=c(0,length(geneList))
-    par(mar=c(0.0, 5.0, 1.5, 1.5),mgp=c(2.8,0.5,0),tcl=-0.2,family="Times")
+    xlim<-c(0,length(geneList))
+    nn<-ifelse(min(geneList)<0,4,3)
+    pp<-pretty(c(geneList,ylimPanels[1:2]),n=nn)
+    ylim<-c(min(pp),max(pp))
+    par(mar=c(0.0, 5.0, 1.5, 1.5),mgp=c(2.2,0.6,0),tcl=-0.2,family="Times")
     plot(x=c(1,max(rsc.vec[,1])),y=c(min(geneList),max(geneList)), type="n", 
-         axes= FALSE,xlab="", ylab=ylabPanels[1], cex.lab=cexlev[1], ylim=ylimPanels[1:2],xlim=xlim, ...=...)
+         axes= FALSE,xlab="", ylab=ylabPanels[1], cex.lab=cexlev[1], ylim=ylim,xlim=xlim, ...=...)
     if(min(geneList)<0)abline(h=0,lwd=1.1)    #segments(0, 0, length(geneList), 0,col="grey70")
     sq<-c(1:length(geneList))%%sparsity;sq[sq>1]<-0
     sq<-as.logical(sq)
-    lines(x=c(1:length(geneList))[sq],y=geneList[sq],col="grey75",lwd=1.5)
-    nn=ifelse(min(geneList)<0,4,3)
-    pp<-pretty(c(geneList,ylimPanels[1:2]),n=nn)
+    lines(x=c(1:length(geneList))[sq],y=geneList[sq],col="#008080",lwd=1.5)
     axis(2,line=0, cex.axis=cexlev[2], las=2, at=pp, labels=pp, lwd=1.3,...=...)
     if(!is.null(labPheno)){
-      legend("topright", legend=labPheno, col="grey75", pch="---", 
-             bty="n",cex=cexlev[3], pt.cex=1.2, ...=...)     
+      legend("topright", legend=labPheno, col="#008080", pch="", x.intersp=0.5, 
+             bty="n",cex=cexlev[3], seg.len=1, lwd=2, ...=...)     
     }
   }
   #-------------------------------------------------
   # plot2
   if(heightPanels[2]>0){
-    par(mar=c(0.0, 5.0, 0, 1.5),mgp=c(2.5,0.25,0),tcl=-0.1,tck=0.15)
+    par(mar=c(0.0, 5.0, 0, 1.5),mgp=c(2.1,0.25,0),tcl=-0.1,tck=0.15)
     plot(x=c(1,max(rsc.vec[,1])),y=c(0,max(rsc.vec[,2])+1), type="n", axes=FALSE, xlab="",
          ylab="",cex.lab=cexlev[1], ...=...)
     for(i in 1:ng){
@@ -511,30 +512,29 @@ gsplot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enrichm
       xx<-rsc.vec[idx,1]
       yy<-rsc.vec[idx,2]
       cc<-rsc.vec[idx,3]
-      segments(xx,yy-0.9,xx, yy-0.1, col=rsc.colors[cc],lwd=0.2)
+      segments(xx,yy-0.9,xx, yy-0.1, col=rsc.colors[cc],lwd=0.35)
     }
     axis(2,las=2, at=c(1:ng)-0.5,labels=ylabPanels[2], line=0, cex.axis=cexlev[3],lwd=1.3, ...=...)
-    legend("top", legend=c("negative interaction","positive interaction"), col=rsc.colors, 
-           pch="---", bty="n",cex=cexlev[4],horiz=TRUE, pt.cex=1.5, title=NULL, title.adj = 0,
-           inset=0.0, ...=...)
+    legend("top", legend=c("negative","positive"), col=rsc.colors, bty="n",cex=cexlev[4],
+           horiz=TRUE,seg.len=1,lwd=2,title=NULL,title.adj = 0,inset=-0.1,x.intersp=0.5, ...=...)
   }
   #-------------------------------------------------
   # plot3
   if(heightPanels[3]>0){
     rsc.colors<-get.alpha(rsc.colors,1.0)
-    par(mar=c(5, 5.0, 0.0, 1.5),mgp=c(2.8,0.5,0),tcl=-0.2)
+    par(mar=c(5, 5.0, 0.0, 1.5),mgp=c(2.2,0.5,0),tcl=-0.2)
     cc<-as.matrix(runningScoreDown)
     plot(x=c(1,nrow(cc)),y=c(min(cc),max(cc)), type="n", axes=FALSE, xlab="",
          ylim=ylimPanels[c(3,4)],ylab=ylabPanels[3], cex.lab=cexlev[1], ...=...)
-    par(mgp=c(3.0,0.5,0))
+    par(mgp=c(2.0,0.5,0))
     title(xlab=xlab, cex.lab=cexlev[1], ...=...)
     if(min(cc)<0)abline(h=0,lwd=1.1)
     #---
     cc<-as.matrix(runningScoreDown)
     for(i in 1:ng){
       yy<-cc[,i]
-      xx<-c(1:nrow(cc))
       xx<-which(yy==enrichmentScoreDown[[i]])
+      xx<-xx[length(xx)]
       segments(xx,0, xx, yy[xx], col=rsc.colors[1],lwd=1.5, lty=3)
     }
     for(i in 1:ng){
@@ -542,14 +542,13 @@ gsplot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enrichm
       xx<-c(1:nrow(cc))
       sq<-c(1:length(xx))%%sparsity;sq[sq>1]<-0
       sq<-as.logical(sq)
-      lines(x=xx[sq],y=yy[sq],col=rsc.colors[1],lwd=1.2)
+      lines(x=xx[sq],y=yy[sq],col=rsc.colors[1],lwd=1.5)
     }
     #---
     cc<-as.matrix(runningScoreUp)
     for(i in 1:ng){
       yy<-cc[,i]
-      xx<-c(1:nrow(cc))
-      xx<-which(yy==enrichmentScoreUp[[i]])
+      xx<-which(yy==enrichmentScoreUp[[i]])[1]
       segments(xx,0, xx, yy[xx], col=rsc.colors[2],lwd=1.5, lty=3)
     }
     for(i in 1:ng){
@@ -557,31 +556,30 @@ gsplot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enrichm
       xx<-c(1:nrow(cc))
       sq<-c(1:length(xx))%%sparsity;sq[sq>1]<-0
       sq<-as.logical(sq)
-      lines(x=xx[sq],y=yy[sq],col=rsc.colors[2],lwd=1.2)
+      lines(x=xx[sq],y=yy[sq],col=rsc.colors[2],lwd=1.5)
     }
     cc<-as.matrix(runningScoreDown)
     for(i in 1:ng){
       yy<-cc[,i]
-      xx<-c(1:nrow(cc))
       xx<-which(yy==enrichmentScoreDown[[i]])
+      xx<-xx[length(xx)]
       points(xx, yy[xx], bg=rsc.colors[1],col=rsc.colors[1], lwd=1, cex=1, pch=21)
     }
     cc<-as.matrix(runningScoreUp)
     for(i in 1:ng){
       yy<-cc[,i]
-      xx<-c(1:nrow(cc))
-      xx<-which(yy==enrichmentScoreUp[[i]])
+      xx<-which(yy==enrichmentScoreUp[[i]])[1]
       points(xx, yy[xx], bg=rsc.colors[2],col=rsc.colors[2], lwd=1, cex=1, pch=21)
     }
     #---
     pp<-pretty(c(0,nrow(cc)))
     axis(1,cex.axis=cexlev[2], lwd=1.3,at=pp, labels=pp,  ...=...)
     axis(2,las=2,cex.axis=cexlev[2], lwd=1.3, ...=...)
-    adjpv<-c(adjpv["up"],adjpv["down"],adjpv["pv"])
-    lbstat<-paste(c("Positive","Negative","Differential")," (adj.p ",adjpv,")",sep="")
-    legend("topright", legend=lbstat, col=c(rsc.colors[2],rsc.colors[1],NA), pch=20, bty="n",cex=cexlev[5], 
-           pt.cex=1.2, title=ylabPanels[2], title.adj = 0,  ...=...)
-    legend("bottomleft", legend=label, col=NA, pch=NA, bty="n",cex=cexlev[1]*1.3, pt.cex=1.2, title=NULL,  ...=...)
+    adjpv<-c(adjpv["down"],adjpv["up"],adjpv["pv"])
+    lbstat<-paste(c("neg ","pos ","diff "),adjpv,sep="")
+    legend("bottomleft", legend=lbstat, col=c(rsc.colors[1],rsc.colors[2],NA), pch=20, bty="n",cex=cexlev[5], 
+           pt.cex=1.2, title="  Adj. p-value", title.adj = 0, y.intersp=0.85,x.intersp=0.6, ...=...)
+    legend("topright", legend=label, col=NA, pch=NA, bty="n",cex=cexlev[1]*1.3, pt.cex=1.2, title=NULL,  ...=...)
   }
 }
 

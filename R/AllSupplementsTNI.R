@@ -7,74 +7,62 @@
 ##------------------------------------------------------------------------
 ##------------------------------------------------------------------------
 
+##------------------------------------------------------------------------
 ##This function takes a gene expression matrix (x), a list of TFs
 ##and computes a partial mutal information matrix, i.e., between each TF 
 ##and all potential targets. Sig. mi values are inferred by permutation 
 ##analysis.
-tni.pmim<-function(x,tfs,estimator="pearson",setdg=0,getadj=FALSE){
+tni.pmin<-function(x,tfs,estimator="pearson",setdg=0,simplified=FALSE,getadj=FALSE){
   x=t(x)
-  dg=setdg
   pmim=cor(x[,tfs],x, method=estimator,use="complete.obs")^2
   if(length(tfs)>1){
-    diag(pmim[,tfs])=dg
+    diag(pmim[,tfs])=setdg
   } else {
-    pmim[,tfs]=dg
+    pmim[,tfs]=setdg
   }
   maxi=0.999999
   pmim[which(pmim > maxi)]=maxi
   pmim = -0.5 * log(1 - pmim)
   pmim[pmim<0]=0
-  if(getadj){
-    mim=matrix(dg,ncol=ncol(x),nrow=ncol(x))
+  if(simplified){
+    return(t(pmim))
+  } else if(getadj){
+    mim=matrix(setdg,ncol=ncol(x),nrow=ncol(x))
     colnames(mim)=colnames(x)
     rownames(mim)=colnames(x)  
     mim[tfs,]=pmim
     mim[,tfs]=t(pmim)
-    mim
+    return(mim)
   } else {
     pmim<-t(pmim)
     colnames(pmim)<-tfs
-    pmim
+    return(pmim)
   }
 }
-
-##This function takes a gene expression matrix (x), a tnet and
-##computes a simple correlation matrix, i.e., between each TF 
-##and all targets, and returns the mode of action (-/+)
-##of all pre-computed sig. associations.
-tni.cor<-function(x,tnet,estimator="pearson",dg=0, asInteger=TRUE, mapAssignedAssociation=TRUE){
-  tfs<-colnames(tnet)
-  tar<-rownames(tnet)
-  ids<-unique(c(tfs,setdiff(tar,tfs)))
-  x=x[ids,]
+##local pmin function for tni.perm.separate
+.perm.pmin.separate<-function(x,tf,estimator="pearson",nPerm=1000){
   x=t(x)
-  #--
-  pcorm=cor(x[,tfs],x[,tar], method=estimator,use="complete.obs")
-  if(asInteger){
-    pcorm[pcorm<0]=-1
-    pcorm[pcorm>0]=1
-  }
-  if(length(tfs)>1)diag(pcorm[,tfs])=dg
-  #--
-  pcorm<-t(pcorm)
-  colnames(pcorm)<-tfs
-  if(mapAssignedAssociation)pcorm[tnet==0]=0
-  pcorm
+  x=cor(replicate(nPerm,sample(x[,tf])),x[,-tf], method=estimator,use="complete.obs")^2
+  maxi=0.999999
+  x[which(x > maxi)]=maxi
+  x = -0.5 * log(1 - x)
+  x[x<0]=0
+  t(x)
 }
-tni.tfmdcor<-function(x,tfs, mds, estimator="pearson",dg=0, asInteger=FALSE){
-  ids<-unique(c(tfs,setdiff(mds,tfs)))
-  x=x[ids,]
-  x=t(x)
-  #--
-  pcorm=cor(x[,tfs],x[,mds], method=estimator,use="complete.obs")
-  if(asInteger){
-    pcorm[pcorm<0]=-1
-    pcorm[pcorm>0]=1
+##local pmin function for pooled tni.perm.pooled
+.perm.pmin.pooled<-function(x, n, estimator="pearson"){
+  x<-matrix(sample(x),ncol=nrow(x),nrow=ncol(x))
+  x<-cor(x[,1:n],x, method=estimator, use="complete.obs")^2
+  if(n>1){
+    diag(x[,1:n])=NA
+  } else {
+    x[,1:n]=NA
   }
-  #--
-  pcorm<-t(pcorm)
-  colnames(pcorm)<-tfs
-  pcorm
+  maxi=0.999999
+  x[which(x>maxi)]=maxi
+  x = -0.5*log(1-x)
+  x[x<0]=0
+  t(x)
 }
 
 ##------------------------------------------------------------------------
@@ -100,39 +88,21 @@ tni.dpi<-function(pmim,eps=0){
 }
 
 ##------------------------------------------------------------------------
-##permutation analysis
-tni.perm<-function(object,verbose=TRUE){
-  ##local pmim function for permutation
-  perm.pmim<-function(x,tf,estimator="pearson",nPerm=1000){
-    x=t(x)
-    tf<-which(tf==colnames(x))
-    x=cor(replicate(nPerm,sample(x[,tf])),x[,-tf], method=estimator,use="complete.obs")^2
-    maxi=0.999999
-    x[which(x > maxi)]=maxi
-    x = -0.5 * log(1 - x)
-    x[x<0]=0
-    t(x)
-  }
+## permutation analysis with separated null distribution
+tni.perm.separate<-function(object,verbose=TRUE){
   ##compute partial mi matrix
-  pmim<-tni.pmim(object@gexp,object@transcriptionFactors,object@para$perm$estimator)
+  pmim<-tni.pmin(object@gexp,object@transcriptionFactors,object@para$perm$estimator)
   #compute null distributions
   ##check if package snow has been loaded and 
-  ##a cluster object has been created  
-  b1<-"package:snow" %in% search()
-  b2<-tryCatch({
+  ##a cluster object has been created
+  if(isParallel() && length(object@transcriptionFactors)>1){
     cl<-getOption("cluster")
-    cl.check<-FALSE
-    if(is(cl, "cluster")){
-      cl.check <- all( sapply(1:length(cl),function(i)isOpen(cl[[i]]$con) ) == TRUE )
-    }
-    cl.check
-  }, error=function(e){ FALSE 
-  })
-  if( b1 && b2 && length(object@transcriptionFactors)>1){
-    if(verbose)cat("-Performing permutation analysis (parallel version)...\n")
+    snow::clusterExport(cl, list(".perm.pmin.separate"),envir=environment())
+    if(verbose)cat("-Performing permutation analysis (parallel version - ProgressBar disabled)...\n")
     if(verbose)cat("--For", length(object@transcriptionFactors), "regulons...\n")
-    mipval<-parSapply(getOption("cluster"), object@transcriptionFactors, function(tf) {
-      midist<-perm.pmim(object@gexp, tf, object@para$perm$estimator, object@para$perm$nPermutations)
+    mipval<-parSapply(cl, object@transcriptionFactors, function(tf) {
+      pi<-which(tf==rownames(object@gexp))
+      midist <- .perm.pmin.separate(object@gexp, pi, object@para$perm$estimator, object@para$perm$nPermutations)
       midist<-sort(midist)
       np<-length(midist)
       midist<-np-findInterval(pmim[,tf],midist)
@@ -142,18 +112,17 @@ tni.perm<-function(object,verbose=TRUE){
       midist <- p.adjust(midist,method=object@para$perm$pAdjustMethod)
       midist    
     })
-    return(mipval)
   } else {
     if(verbose)cat("-Performing permutation analysis...\n")
     if(verbose)cat("--For", length(object@transcriptionFactors), "regulons...\n")
     if(verbose) pb <- txtProgressBar(style=3)
     mipval<-sapply(1:length(object@transcriptionFactors), function(i){
-      tf=object@transcriptionFactors[i]
-      midist<-perm.pmim(object@gexp, tf, object@para$perm$estimator, object@para$perm$nPermutations)
+      tf<-object@transcriptionFactors[i]
+      pi<-which(tf==rownames(object@gexp))
+      midist <- .perm.pmin.separate(object@gexp, pi, object@para$perm$estimator, object@para$perm$nPermutations)
       midist<-sort(midist)
       np<-length(midist)
       midist<-np-findInterval(pmim[,tf],midist)
-      #midist <- np-getprobs(pmim[,tf],midist) 
       ##pseudocounts are added to avoid P-values of zero
       midist <- (1 + midist)/(1 + np)
       ##pvalue adjustment (local distributions)
@@ -174,58 +143,33 @@ tni.perm<-function(object,verbose=TRUE){
 }
 
 ##------------------------------------------------------------------------
-##permutation analysis with pooled null distribution
-tni.perm.pooled=function(object, parChunks=10, verbose=TRUE){
-  ##local pmim function for permutation
-  perm.pmim<-function(x,n, estimator="pearson"){
-    x<-matrix(sample(x),ncol=nrow(x),nrow=ncol(x))
-    x<-cor(x[,1:n],x, method=estimator,use="complete.obs")^2
-    if(n>1){
-      diag(x[,1:n])=NA
-    } else {
-      x[,1:n]=NA
-    }
-    maxi=0.999999
-    x[which(x>maxi)]=maxi
-    x = -0.5*log(1-x)
-    x[x<0]=0
-    t(x)
-  }
+##permutation with pooled null distribution
+tni.perm.pooled<-function(object, parChunks=10, verbose=TRUE){
   ##compute partial mi matrix and get unique values
-  uniqueVec<-tni.pmim(object@gexp,object@transcriptionFactors,object@para$perm$estimator)
+  uniqueVec<-tni.pmin(object@gexp,object@transcriptionFactors,object@para$perm$estimator)
   uniqueVec<-sort(unique(as.numeric(uniqueVec)))
   ##initialize permutation count
   ctsum<-numeric(length(uniqueVec))
   ##build the null distribution via permutation  
   ##check if package snow has been loaded and 
-  ##a cluster object has been created  
-  b1<-"package:snow" %in% search()
-  b2<-tryCatch({
+  ##a cluster object has been created
+  if(isParallel() && length(object@transcriptionFactors)>1) {
     cl<-getOption("cluster")
-    cl.check<-FALSE
-    if(is(cl, "cluster")){
-      cl.check <- all( sapply(1:length(cl),function(i)isOpen(cl[[i]]$con) ) == TRUE )
-    }
-    cl.check
-  }, error=function(e){ FALSE 
-  })
-  if( b1 && b2 && length(object@transcriptionFactors)>1) {
+    snow::clusterExport(cl, list(".perm.pmin.pooled"),envir=environment())
     if(verbose)cat("-Performing permutation analysis (parallel version)...\n")
     if(verbose)cat("--For", length(object@transcriptionFactors), "regulons...\n")
-    if(object@para$perm$nPermutations<=parChunks){
-      stop("NOTE: 'nPermutations' should be multiple and greater than 'parChunks'!")
+    if(parChunks>(object@para$perm$nPermutations/2)){
+      parChunks<-as.integer(object@para$perm$nPermutations/2)
     }
-    nper<-object@para$perm$nPermutations/parChunks
-    if(nper>as.integer(nper)){
-      stop("NOTE: 'nPermutations' should be multiple of 'parChunks'!")
-    }
+    nperChunks<-1:object@para$perm$nPermutations
+    nperChunks<-split(nperChunks, cut(nperChunks, parChunks))
+    nperChunks<-unlist(lapply(nperChunks,length))
     if(verbose)pb<-txtProgressBar(style=3)
     for(i in 1:parChunks){
-      permdist<-parLapply(getOption("cluster"),1:nper,function(j){
-        permt<-perm.pmim(object@gexp,length(object@transcriptionFactors),object@para$perm$estimator)
+      permdist<-parLapply(cl,1:nperChunks[i],function(j){
+        permt <- .perm.pmin.pooled(object@gexp,length(object@transcriptionFactors),object@para$perm$estimator)
         permt<-sort(permt)
         length(permt)-findInterval(uniqueVec,permt)
-        #length(permt)-getprobs(uniqueVec,permt)
       })
       sapply(1:length(permdist),function(j){
         ctsum<<-ctsum+permdist[[j]]
@@ -239,7 +183,7 @@ tni.perm.pooled=function(object, parChunks=10, verbose=TRUE){
     if(verbose)cat("--For", length(object@transcriptionFactors), "regulons...\n")
     if(verbose)pb<-txtProgressBar(style=3)
     sapply(1:object@para$perm$nPermutations, function(i){
-      permt<-perm.pmim(object@gexp,length(object@transcriptionFactors),object@para$perm$estimator)
+      permt <- .perm.pmin.pooled(object@gexp,length(object@transcriptionFactors),object@para$perm$estimator)
       permt<-sort(permt)
       permt<-length(permt)-findInterval(uniqueVec,permt)
       ctsum<<-ctsum+permt
@@ -249,7 +193,7 @@ tni.perm.pooled=function(object, parChunks=10, verbose=TRUE){
   }
   if(verbose)close(pb)
   ##compute pvals
-  pmim<-tni.pmim(object@gexp,object@transcriptionFactors,object@para$perm$estimator)
+  pmim<-tni.pmin(object@gexp,object@transcriptionFactors,object@para$perm$estimator)
   np <- object@para$perm$nPermutations * ( prod(dim(pmim)) - length(object@transcriptionFactors) )
   mipval <- (1 + ctsum)/(1 + np)
   mipval<-mipval[match(as.numeric(pmim),uniqueVec)]
@@ -262,19 +206,111 @@ tni.perm.pooled=function(object, parChunks=10, verbose=TRUE){
 }
 
 ##------------------------------------------------------------------------
+#bootstrap analysis
+tni.boot<-function(object, parChunks=10, verbose=TRUE){
+  ##identify empirical boundaries from tn.ref;
+  ##..this strategy turns the bootstrap more tractable for large 
+  ##..scale datasets.
+  mimark<-sapply(1:ncol(object@results$tn.ref), function(i){
+    tp<-abs(object@results$tn.ref[object@results$tn.ref[,i]!=0,i])
+    if(length(tp)>0) min(tp) else 0
+  })
+  if(object@para$perm$globalAdjustment){
+    mimark<-rep(max(mimark),length(mimark))
+  }
+  ##initialize bootstrap matrix
+  bcount<-matrix(0,ncol=ncol(object@results$tn.ref),nrow=nrow(object@results$tn.ref))
+  ##run bootstrap
+  ##check if package snow has been loaded and 
+  ##a cluster object has been created  
+  if(isParallel() && length(object@transcriptionFactors)>1) {
+    cl<-getOption("cluster")
+    snow::clusterExport(cl, list("tni.pmin"),envir=environment())
+    if(verbose)cat("-Performing bootstrap analysis (parallel version)...\n")
+    if(verbose)cat("--For", length(object@transcriptionFactors), "regulons...\n")
+    if(parChunks>(object@para$boot$nBootstraps/2)){
+      parChunks<-as.integer(object@para$boot$nBootstraps/2)
+    }
+    nbootChunks<-1:object@para$boot$nBootstraps
+    nbootChunks<-split(nbootChunks, cut(nbootChunks, parChunks))
+    nbootChunks<-unlist(lapply(nbootChunks,length))
+    if(verbose)pb<-txtProgressBar(style=3)
+    for(i in 1:parChunks){
+      bootdist<-parLapply(cl,1:nbootChunks[i],function(j){
+        boott<-tni.pmin(object@gexp[,sample(ncol(object@gexp),replace=TRUE)], estimator=object@para$boot$estimator,
+                        object@transcriptionFactors, simplified=TRUE)
+        sapply(1:ncol(boott),function(k){as.numeric(boott[,k]>mimark[k])})
+      })
+      sapply(1:length(bootdist),function(j){
+        bcount<<-bcount+bootdist[[j]]
+        NULL
+      })
+      rm(bootdist);gc()
+      if(verbose)setTxtProgressBar(pb, i/parChunks)
+    }
+  } else {
+    if(verbose)cat("-Performing bootstrap analysis...\n")
+    if(verbose)cat("--For", length(object@transcriptionFactors), "regulons...\n")
+    if(verbose) pb <- txtProgressBar(style=3)    
+    sapply(1:object@para$boot$nBootstraps,function(i){
+      if(verbose) setTxtProgressBar(pb, i/object@para$boot$nBootstraps)
+      bootdist<-tni.pmin(object@gexp[,sample(ncol(object@gexp),replace=TRUE)], estimator=object@para$boot$estimator,
+                         object@transcriptionFactors, simplified=TRUE)
+      bootdist<-sapply(1:ncol(bootdist),function(j){as.numeric(bootdist[,j]>mimark[j])})
+      bcount <<- bcount + bootdist
+      NULL
+    })
+  }
+  if(verbose)close(pb)
+  ##decide on the stability of the inferred associations
+  cons<-as.integer( object@para$boot$nBootstraps * (object@para$boot$consensus/100) )
+  object@results$tn.ref[bcount<=cons]<-0
+  return(object@results$tn.ref)
+}
+
+
+##------------------------------------------------------------------------
+##------------------------------------------------------------------------
+##   -- COMPLEMENTARY FUNCTIONS TO DERIVE DIRECTIONALITY FOR TNETs --
+##------------------------------------------------------------------------
+##------------------------------------------------------------------------
+
+##------------------------------------------------------------------------
+##This function takes a gene expression matrix (x), a tnet and
+##computes a simple correlation matrix, i.e., between each TF 
+##and all targets, and returns the mode of action (-/+)
+##of all pre-computed sig. associations.
+tni.cor<-function(x,tnet,estimator="pearson",dg=0, asInteger=TRUE, mapAssignedAssociation=TRUE){
+  tfs<-colnames(tnet)
+  tar<-rownames(tnet)
+  ids<-unique(c(tfs,setdiff(tar,tfs)))
+  x=x[ids,]
+  x=t(x)
+  #--
+  pcorm=cor(x[,tfs],x[,tar], method=estimator,use="complete.obs")
+  if(asInteger){
+    pcorm[pcorm<0]=-1
+    pcorm[pcorm>0]=1
+  }
+  if(length(tfs)>1)diag(pcorm[,tfs])=dg
+  #--
+  pcorm<-t(pcorm)
+  colnames(pcorm)<-tfs
+  if(mapAssignedAssociation)pcorm[tnet==0]=0
+  pcorm
+}
+
+
+##------------------------------------------------------------------------
+##------------------------------------------------------------------------
+##        -- COMPLEMENTARY FUNCTIONS FOR CDT MI ANALYSIS --
+##------------------------------------------------------------------------
+##------------------------------------------------------------------------
+
+##------------------------------------------------------------------------
 ##compute delta mi from pooled null distributions, returns global mi markers
 miThresholdMd=function(gexp, nsamples, prob=c(0.05,0.95), nPermutations=1000, 
                        estimator="pearson", verbose=TRUE){
-  perm.pmim<-function(x, nsamples, nsc, estimator="pearson"){
-    x<-t(x[,sample(ncol(x),nsamples)]) ##i.e. sample modulators
-    x<-cor(x[,sample(ncol(x),nsc)],x, method=estimator,use="complete.obs")^2
-    diag(x[,1:nsc])=0
-    maxi=0.999999
-    x[which(x>maxi)]=maxi
-    x = -0.5*log(1-x)
-    x[x<0]=0
-    t(x)
-  }
   if(length(prob)==1)prob=sort(c(1-prob,prob))
   if(nsamples>ncol(gexp))nsamples=ncol(gexp)
   ##build null distribution
@@ -282,8 +318,8 @@ miThresholdMd=function(gexp, nsamples, prob=c(0.05,0.95), nPermutations=1000,
   if(verbose)pb<-txtProgressBar(style=3)
   nullmark<-sapply(1:nPermutations, function(i){
     if(verbose)setTxtProgressBar(pb, i/nPermutations)
-    rmil<-perm.pmim(gexp,nsamples=nsamples,nsc=nsc,estimator=estimator)
-    rmih<-perm.pmim(gexp,nsamples=nsamples,nsc=nsc,estimator=estimator)
+    rmil<-tni.pmin(gexp[,sample(ncol(gexp),nsamples)],tfs=sample(rownames(gexp),nsc),estimator=estimator,simplified=TRUE)
+    rmih<-tni.pmin(gexp[,sample(ncol(gexp),nsamples)],tfs=sample(rownames(gexp),nsc),estimator=estimator,simplified=TRUE)
     quantile(rmih-rmil,probs=prob,na.rm=TRUE,names=FALSE)
   })
   if(verbose)close(pb)
@@ -305,8 +341,8 @@ miThresholdMdTf<-function(gexp, tfs, nsamples, prob=c(0.05,0.95), nPermutations=
   rmid<-sapply(1:nPermutations,function(i){
     if(verbose)setTxtProgressBar(pb, i/nPermutations)
     ridx<-sample(nc)
-    rmil<-tni.pmim(gexp[,ridx[idxl]],tfs=tfs,estimator=estimator)
-    rmih<-tni.pmim(gexp[,ridx[idxh]],tfs=tfs,estimator=estimator)
+    rmil<-tni.pmin(gexp[,ridx[idxl]],tfs=tfs,estimator=estimator,simplified=TRUE)
+    rmih<-tni.pmin(gexp[,ridx[idxh]],tfs=tfs,estimator=estimator,simplified=TRUE)
     apply(rmih-rmil,2,quantile,probs=prob,na.rm=TRUE,names=FALSE)
   })
   if(verbose)close(pb)
@@ -347,8 +383,8 @@ miMdTfStats<-function(gexp, regulons, nsamples, nPermutations=1000,
   rmid<-sapply(1:nPermutations,function(i){
     if(verbose)setTxtProgressBar(pb, i/nPermutations)
     ridx<-sample(nc)
-    rmil<-tni.pmim(gexp[,ridx[idxl]],tfs=tfs,estimator=estimator)
-    rmih<-tni.pmim(gexp[,ridx[idxh]],tfs=tfs,estimator=estimator)
+    rmil<-tni.pmin(gexp[,ridx[idxl]],tfs=tfs,estimator=estimator,simplified=TRUE)
+    rmih<-tni.pmin(gexp[,ridx[idxh]],tfs=tfs,estimator=estimator,simplified=TRUE)
     sapply(tfs,function(tf){
       l<-rmil[regulons[[tf]],tf]
       h<-rmih[regulons[[tf]],tf]
@@ -391,8 +427,8 @@ cdt.stability<-function(gexp,estimator,mrkboot,miThreshold,spsz,md,tfs,sigDelta,
     idx<-sort.list(gxtemp[md,])
     idxl<-idx[idxl]
     idxh<-idx[idxh]
-    mil<-tni.pmim(gxtemp[,idxl],tfs,estimator=estimator)
-    mih<-tni.pmim(gxtemp[,idxh],tfs,estimator=estimator)
+    mil<-tni.pmin(gxtemp[,idxl],tfs,estimator=estimator,simplified=TRUE)
+    mih<-tni.pmin(gxtemp[,idxh],tfs,estimator=estimator,simplified=TRUE)
     mid<-mih-mil
     if(miThreshold=="md.tf" && length(tfs)>1){
       stabt<-t(apply(mid,1,"<",mrkboot[,1])) | t(apply(mid,1,">",mrkboot[,2]))
@@ -403,228 +439,6 @@ cdt.stability<-function(gexp,estimator,mrkboot,miThreshold,spsz,md,tfs,sigDelta,
   }
   if(verbose)close(pb)
   bcount>=as.integer( nboot * (consensus/100) )
-}
-
-##------------------------------------------------------------------------
-##compute delta mi, returns mi null for each tf 
-##randomization applyed across modulators and regulons
-# miMdTfStats2<-function(gexp, regulons, nsamples, nPermutations=1000, 
-#                       estimator="pearson", verbose=TRUE){
-#   tfs<-names(regulons)
-#   #---get low/high sample idxs
-#   nc<-ncol(gexp)
-#   idxl<-1:nsamples
-#   idxh<-(nc-nsamples-1):nc
-#   idxp<-unique(c(tfs,as.character(unlist(regulons))))
-#   gexp<-gexp[idxp,]
-#   #---run permutation
-#   if(verbose)pb<-txtProgressBar(style=3)
-#   rmid<-sapply(1:nPermutations,function(i){
-#     if(verbose)setTxtProgressBar(pb, i/nPermutations)
-#     ridx<-sample(nc)
-#     rmil<-tni.pmim(gexp[,ridx[idxl]],tfs=tfs,estimator=estimator)
-#     rmih<-tni.pmim(gexp[,ridx[idxh]],tfs=tfs,estimator=estimator)
-#     rmid<-rmih-rmil
-#     sapply(tfs,function(tf){
-#       noise<-sd(rmih[regulons[[tf]],tf])+sd(rmil[regulons[[tf]],tf])
-#       median( rmid[regulons[[tf]],tf] ) / noise
-#     })
-#   })
-#   rownames(rmid)<-tfs
-#   rmid
-# }
-
-##------------------------------------------------------------------------
-##compute delta mi, returns mi null for each tf 
-##randomization applyed across modulators and regulons
-# miMdTfStats<-function(gexp, regulons, nsamples, nPermutations=1000, 
-#                       estimator="pearson", verbose=TRUE){
-#   tfs<-names(regulons)
-#   #---get low/high sample idxs
-#   nc<-ncol(gexp)
-#   idxl<-1:nsamples
-#   idxh<-(nc-nsamples-1):nc
-#   idxp<-unique(c(tfs,as.character(unlist(regulons))))
-#   gexp<-gexp[idxp,]
-#   #---run permutation
-#   if(verbose)pb<-txtProgressBar(style=3)
-#   rmid<-sapply(1:nPermutations,function(i){
-#     if(verbose)setTxtProgressBar(pb, i/nPermutations)
-#     x<-t(apply(gexp,1,sample))
-#     rmil<-tni.pmim(x[,idxl],tfs=tfs,estimator=estimator)
-#     rmih<-tni.pmim(x[,idxh],tfs=tfs,estimator=estimator)
-#     rmid<-rmih-rmil
-#     sapply(tfs,function(tf){
-#       noise<-sd(rmih[regulons[[tf]],tf])+sd(rmil[regulons[[tf]],tf])
-#       median( rmid[regulons[[tf]],tf] ) / noise
-#     })
-#   })
-#   rownames(rmid)<-tfs
-#   rmid
-# }
-
-##------------------------------------------------------------------------
-##compute delta mi, returns mi null for each tf 
-##randomization on gexp matrix
-# miMdTfStats<-function(gexp, regulons, nsamples, nPermutations=1000, 
-#                       estimator="pearson", verbose=TRUE){
-#   tfs<-names(regulons)
-#   #---get low/high sample idxs
-#   nc<-ncol(gexp)
-#   idxl<-1:nsamples
-#   idxh<-(nc-nsamples-1):nc
-#   idxp <- which( rownames(gexp) %in% c(tfs,as.character(unlist(regulons))) )
-#   #---run permutation
-#   if(verbose)pb<-txtProgressBar(style=3)
-#   rmid<-sapply(1:nPermutations,function(i){
-#     if(verbose)setTxtProgressBar(pb, i/nPermutations)
-#     x<-array(sample(gexp),dim=dim(gexp),dimnames=list(rownames(gexp),colnames(gexp)))
-#     rmil<-tni.pmim(x[idxp,idxl],tfs=tfs,estimator=estimator)
-#     rmih<-tni.pmim(x[idxp,idxh],tfs=tfs,estimator=estimator)
-#     rmid<-rmih-rmil
-#     sapply(tfs,function(tf){
-#       noise<-sd(rmih[regulons[[tf]],tf])+sd(rmil[regulons[[tf]],tf])
-#       median( rmid[regulons[[tf]],tf] ) / noise
-#     })
-#   })
-#   rownames(rmid)<-tfs
-#   rmid
-# }
-
-##compute delta mi, returns mi markers for each tf-target individually
-# miThresholdMdTfTar<-function(gexp, tfs, nsamples, prob=0.95, nPermutations=1000, 
-#                              estimator="pearson", verbose=TRUE){
-#   #---get low/high sample idxs
-#   nc<-ncol(gexp)
-#   idxl<-1:nsamples
-#   idxh<-(nc-nsamples-1):nc
-#   #---run permutation
-#   dmimark<-sapply(1:length(tfs),function(i){
-#     if(verbose)cat(paste("-",i,"/",length(tfs),"\n",sep=""))
-#     if(verbose)pb<-txtProgressBar(style=3)
-#     rmid<-sapply(1:nPermutations,function(j){
-#       if(verbose)setTxtProgressBar(pb, j/nPermutations)
-#       ridx<-sample(nc)
-#       rmil<-tni.pmim(gexp[,ridx[idxl]],tfs=tfs[i],estimator=estimator)
-#       rmih<-tni.pmim(gexp[,ridx[idxh]],tfs=tfs[i],estimator=estimator)
-#       abs(rmih-rmil)
-#     })
-#     if(verbose)close(pb)
-#     apply(rmid,1,quantile,probs=prob,na.rm=TRUE,names=FALSE)
-#   })
-#   rownames(dmimark)<-rownames(gexp)
-#   colnames(dmimark)<-tfs
-#   dmimark
-# }
-
-##------------------------------------------------------------------------
-#bootstrap analysis
-tni.boot<-function(object, parChunks=10, verbose=TRUE){
-  #local pmim function
-  boot.pmim<-function(x,tfs,estimator="pearson"){
-    x<-t(x[,sample(1:ncol(x),replace=TRUE)])
-    x<-cor(x[,tfs],x, method=estimator,use="complete.obs")^2
-    if(length(tfs)>1){
-      diag(x[,tfs])=0
-    } else {
-      x[,tfs]=0
-    }
-    maxi=0.999999
-    x[which(x>maxi)]=maxi
-    x <- -0.5*log(1-x)
-    x[x<0]=0
-    t(x)
-  }  
-  ##identify empirical boundaries from tn.ref;
-  ##..this strategy turns the bootstrap more tractable for large 
-  ##..scale datasets.
-  mimark<-sapply(1:ncol(object@results$tn.ref), function(i){
-    tp<-abs(object@results$tn.ref[object@results$tn.ref[,i]!=0,i])
-    ifelse(length(tp)>0 , min(tp), 0)
-  })
-  if(object@para$perm$globalAdjustment){
-    mimark<-rep(max(mimark),length(mimark))
-  }
-  ##initialize bootstrap matrix
-  bcount<-matrix(0,ncol=ncol(object@results$tn.ref),nrow=nrow(object@results$tn.ref))
-  ##run bootstrap
-  ##check if package snow has been loaded and 
-  ##a cluster object has been created  
-  b1<-"package:snow" %in% search()
-  b2<-tryCatch({
-    cl<-getOption("cluster")
-    cl.check<-FALSE
-    if(is(cl, "cluster")){
-      cl.check <- all( sapply(1:length(cl),function(i)isOpen(cl[[i]]$con) ) == TRUE )
-    }
-    cl.check
-  }, error=function(e){ FALSE 
-  }) 
-  if( b1 && b2 && length(object@transcriptionFactors)>1) {
-    if(verbose)cat("-Performing bootstrap analysis (parallel version)...\n")
-    if(verbose)cat("--For", length(object@transcriptionFactors), "regulons...\n")
-    if(object@para$boot$nBootstraps<=parChunks){
-      stop("NOTE: 'nBootstraps' should be multiple and greater than 'parChunks'!")
-    }
-    nboot<-object@para$boot$nBootstraps/parChunks
-    if(nboot>as.integer(nboot)){
-      stop("NOTE: 'nBootstraps' should be multiple of'parChunks'!")
-    }
-    if(verbose)pb<-txtProgressBar(style=3)
-    for(i in 1:parChunks){
-      bootdist<-parLapply(getOption("cluster"),1:nboot,function(j){
-        boott<-boot.pmim(object@gexp,object@transcriptionFactors)
-        sapply(1:ncol(boott),function(k){as.numeric(boott[,k]>mimark[k])})
-      })
-      sapply(1:length(bootdist),function(j){
-        bcount<<-bcount+bootdist[[j]]
-        NULL
-      })
-      rm(bootdist);gc()
-      if(verbose)setTxtProgressBar(pb, i/parChunks)
-    }
-  } else {
-    if(verbose)cat("-Performing bootstrap analysis...\n")
-    if(verbose)cat("--For", length(object@transcriptionFactors), "regulons...\n")
-    if(verbose) pb <- txtProgressBar(style=3)    
-    sapply(1:object@para$boot$nBootstraps,function(i){
-      if(verbose) setTxtProgressBar(pb, i/object@para$boot$nBootstraps)
-      bootdist<-boot.pmim(object@gexp,object@transcriptionFactors)
-      bootdist<-sapply(1:ncol(bootdist),function(j){as.numeric(bootdist[,j]>mimark[j])})
-      bcount <<- bcount + bootdist
-      NULL
-    })
-  }
-  if(verbose)close(pb)
-  ##decide on the stability of the inferred associations
-  cons<-as.integer( object@para$boot$nBootstraps * (object@para$boot$consensus/100) )
-  object@results$tn.ref[bcount<=cons]<-0
-  return(object@results$tn.ref)
-}
-
-##------------------------------------------------------------------------
-##This function takes a row gene expression matrix, a named vector with
-##matched ids and remove duplicated genes using the coefficient
-##of variation (CV) to decide for the most informative probes.
-cv.filter<-function(gexp, ids){ 
-  # compute CV
-  meangx<-apply(gexp,1,mean,na.rm=TRUE)
-  sdgx<-apply(gexp,1,sd,na.rm=TRUE)
-  cvgx<-abs(sdgx/meangx)
-  # aline ids
-  ids <- data.frame(ids[rownames(gexp),], CV=cvgx, stringsAsFactors=FALSE)
-  # remove probes without annotation
-  ids <- ids[!is.na(ids[,2]),]
-  ids <- ids[ids[,2]!="",]
-  # remove duplicated genes by CV
-  ids <- ids[sort.list(ids$CV,decreasing=TRUE),]
-  unids<-unique(ids[,2])
-  idx<-match(unids,ids[,2])
-  ids<-ids[idx,]
-  # update and return gexp matrix
-  gexp<-gexp[rownames(ids),]
-  ids<-ids[,-ncol(ids)]
-  return(list(gexp=gexp,ids=ids))
 }
 
 ##------------------------------------------------------------------------
@@ -694,21 +508,23 @@ checkModuationEffect<-function(gexp,tfs,modregulons,modulatedTFs,glstat,spsz,min
 }
 
 ##------------------------------------------------------------------------
-##---Simplified version of cv.filter---
-##This function takes a gene expression matrix and remove duplicated genes 
-##using the coefficient variation (CV) to decide for the most informative probes.
-##Input format -> rownames: probeID; col[1]: geneID, Col[2...n]:numeric data
-cv.filter.simp<-function(gexp){
-  x<-as.matrix(gexp[,-1])
-  ids<-data.frame(ProbeID=rownames(gexp),geneID=gexp[,1],stringsAsFactors=FALSE)
-  rownames(ids)<-ids$ID1
+##------------------------------------------------------------------------
+##          -- COMPLEMENTARY FUNCTIONS FOR PREPROCESSING --
+##------------------------------------------------------------------------
+##------------------------------------------------------------------------
+
+##------------------------------------------------------------------------
+##This function takes a row gene expression matrix, a named vector with
+##matched ids and remove duplicated genes using the coefficient
+##of variation (CV) to decide for the most informative probes.
+cv.filter<-function(gexp, ids){ 
   # compute CV
-  meangx<-apply(x,1,mean,na.rm=TRUE)
-  sdgx<-apply(x,1,sd,na.rm=TRUE)
-  cvgx<-sdgx/meangx
+  meangx<-apply(gexp,1,mean,na.rm=TRUE)
+  sdgx<-apply(gexp,1,sd,na.rm=TRUE)
+  cvgx<-abs(sdgx/meangx)
   # aline ids
-  ids <- data.frame(ids, CV=cvgx, stringsAsFactors=FALSE)
-  # remove proves without annotation
+  ids <- data.frame(ids[rownames(gexp),], CV=cvgx, stringsAsFactors=FALSE)
+  # remove probes without annotation
   ids <- ids[!is.na(ids[,2]),]
   ids <- ids[ids[,2]!="",]
   # remove duplicated genes by CV
@@ -717,12 +533,40 @@ cv.filter.simp<-function(gexp){
   idx<-match(unids,ids[,2])
   ids<-ids[idx,]
   # update and return gexp matrix
-  x<-x[rownames(ids),]
+  gexp<-gexp[rownames(ids),]
   ids<-ids[,-ncol(ids)]
-  rownames(x)<-ids$geneID
-  #return(list(gexp=x,ids=ids))
-  x
+  return(list(gexp=gexp,ids=ids))
 }
+
+##------------------------------------------------------------------------
+##Simplified version of cv.filter
+##This function takes a gene expression matrix and remove duplicated genes 
+##using the coefficient variation (CV) to decide for the most informative probes.
+##Input format -> rownames: probeID; col[1]: geneID, Col[2...n]:numeric data
+# cv.filter.simp<-function(gexp){
+#   x<-as.matrix(gexp[,-1])
+#   ids<-data.frame(ProbeID=rownames(gexp),geneID=gexp[,1],stringsAsFactors=FALSE)
+#   rownames(ids)<-ids$ID1
+#   # compute CV
+#   meangx<-apply(x,1,mean,na.rm=TRUE)
+#   sdgx<-apply(x,1,sd,na.rm=TRUE)
+#   cvgx<-sdgx/meangx
+#   # aline ids
+#   ids <- data.frame(ids, CV=cvgx, stringsAsFactors=FALSE)
+#   # remove proves without annotation
+#   ids <- ids[!is.na(ids[,2]),]
+#   ids <- ids[ids[,2]!="",]
+#   # remove duplicated genes by CV
+#   ids <- ids[sort.list(ids$CV,decreasing=TRUE),]
+#   unids<-unique(ids[,2])
+#   idx<-match(unids,ids[,2])
+#   ids<-ids[idx,]
+#   # update and return gexp matrix
+#   x<-x[rownames(ids),]
+#   ids<-ids[,-ncol(ids)]
+#   rownames(x)<-ids$geneID
+#   x
+# }
 
 
 ##------------------------------------------------------------------------

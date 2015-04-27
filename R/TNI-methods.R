@@ -176,7 +176,7 @@ setMethod(
     if(object@para$perm$pooledNullDistribution){
       res<-tni.perm.pooled(object, parChunks, verbose)
     } else {
-      res<-tni.perm(object,verbose)
+      res<-tni.perm.separate(object,verbose)
     }
     #object@results$adjpv<-res$adjpv
     object@results$tn.ref<- res$tn.ref * tni.cor(object@gexp,res$tn.ref)
@@ -926,8 +926,8 @@ setMethod(
       lw<-idxLow[md,]
       hg<-idxHigh[md,]
       #compute mi on both tails
-      milow<-tni.pmim(gxtemp[,lw],tfs,estimator=object@para$perm$estimator)
-      mihigh<-tni.pmim(gxtemp[,hg],tfs,estimator=object@para$perm$estimator)
+      milow<-tni.pmin(gxtemp[,lw],tfs,estimator=object@para$perm$estimator)
+      mihigh<-tni.pmin(gxtemp[,hg],tfs,estimator=object@para$perm$estimator)
       #get mi delta
       miDelta<-mihigh-milow
       #identify modulations above mi threshold
@@ -1118,6 +1118,21 @@ setMethod(
   }
 )
 #supplementary information: get simple correlation between tfs and modulator candidates
+# tni.tfmdcor<-function(x,tfs, mds, estimator="pearson",dg=0, asInteger=FALSE){
+#   ids<-unique(c(tfs,setdiff(mds,tfs)))
+#   x=x[ids,]
+#   x=t(x)
+#   #--
+#   pcorm=cor(x[,tfs],x[,mds], method=estimator,use="complete.obs")
+#   if(asInteger){
+#     pcorm[pcorm<0]=-1
+#     pcorm[pcorm>0]=1
+#   }
+#   #--
+#   pcorm<-t(pcorm)
+#   colnames(pcorm)<-tfs
+#   pcorm
+# }
 #rnet<-tni.tfmdcor(object@gexp,tfs, modulators)
 
 ##------------------------------------------------------------------------------

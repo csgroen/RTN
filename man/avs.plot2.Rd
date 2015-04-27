@@ -11,7 +11,8 @@ This function takes an AVS object and plots results from the VSE and EVSE method
 
 \usage{
 avs.plot2(object, what="evse", fname=what, width=14, height=2.5, rmargin=1, 
-bxseq=seq(-4,8,2), decreasing=TRUE, ylab="Annotation", xlab="Clusters of risk-associated and linked SNPs")
+bxseq=seq(-4,8,2), decreasing=TRUE, ylab="Annotation", 
+xlab="Clusters of risk-associated and linked SNPs", tfs=NULL)
 }
 
 \arguments{
@@ -45,7 +46,9 @@ a character value specifying the y-axis label.
 \item{xlab}{
 aa character value specifying the x-axis label (on the top of the grid image).
 }
-
+\item{tfs}{
+an optional vector with annotation identifiers (e.g. transcription factor).
+}
 }
 
 \author{

@@ -32,14 +32,14 @@ tnai.checks <- function(name, para) {
       stop(paste("'avs.plot.what' should be any one of the options: \n", paste(opts,collapse = ", ") ),call.=FALSE )
   }
   else if(name=="reldata"){
-    opts<-c("rel27CEU-NCBIB36")
+    opts<-c("RTNdata.LDrel27")
     if(!is.character(para) || length(para)!=1 || !(para %in% opts))
-      stop(paste("available 'reldata' option:", paste(opts,collapse = ", ") ),call.=FALSE)
+      stop(paste("available 'reldata':", paste(opts,collapse = ", ") ),call.=FALSE)
   }
   else if(name=="ldfilter"){
     opts<-c("DprimeLOD","Rsquare")
     if(!is.character(para) || length(para)!=1 || !(para %in% opts))
-      stop(paste("available 'ldfilter' option:", paste(opts,collapse = ", ") ),call.=FALSE)
+      stop(paste("available 'ldfilter':", paste(opts,collapse = ", ") ),call.=FALSE)
   }
   else if(name=="snpop"){
     if(!is.null(para)){
@@ -79,10 +79,6 @@ tnai.checks <- function(name, para) {
   else if(name=="ntop") {
     if(!is.null(para) && ( !(is.numeric(para) || is.integer(para)) || length(para)!=1 || round(para,0)!=para) )
       stop("'ntop' should be an integer value!",call.=FALSE)
-  }
-  else if(name=="nsplit") {
-    if(!is.null(para) && ( !(is.numeric(para) || is.integer(para)) || length(para)!=1 || round(para,0)!=para) )
-      stop("'nsplit' should be an integer value!",call.=FALSE)
   }
   else if(name=="estimator"){
     if(!is.character(para) || length(para)!=1 || !(para %in% c("pearson", "kendall", "spearman")))
@@ -287,8 +283,8 @@ tnai.checks <- function(name, para) {
       stop("'nrand' should be an integer >=1 !",call.=FALSE)
   }
   else if(name=="parChunks") {
-    if(!(is.integer(para) || is.numeric(para)) || length(para)!=1 || para<1 || round(para,0)!=para)
-      stop("'parChunks' should be an integer >=1 !",call.=FALSE)
+    if(!(is.integer(para) || is.numeric(para)) || length(para)!=1 || para<2 || round(para,0)!=para)
+      stop("'parChunks' should be an integer >=2 !",call.=FALSE)
   }
   else if(name=="nBootstraps") {
     if(!(is.integer(para) || is.numeric(para)) || length(para)!=1 || para<1 || round(para,0)!=para)
@@ -378,8 +374,9 @@ tnai.checks <- function(name, para) {
     if(!is.null(para)){
       if( !( is.numeric(para) || is.integer(para) ) || length(para)==0 )
         stop("'phenotype' should be a named numeric or integer vector with length >0 !",call.=FALSE)
-      if(is.null(names(para)) || any(is.na(names(para))) || any(names(para)==""))
-        stop("'phenotype' should be a named vector, without 'NA' or empty names!",call.=FALSE)      
+      if(is.null(names(para)))
+        stop("'phenotype' should be a named vector, without 'NA' or empty names!",call.=FALSE)  
+      
     }
   }
   else if(name=="hits") {
@@ -409,7 +406,70 @@ tnai.checks <- function(name, para) {
       return(para)
     }
   }
-  else if(name=="annotation"){
+  else if(name=="annotation.vse"){
+    if( !is.data.frame(para) || ncol(para)<3 ){
+      stop("'annotation' should be a dataframe with ncol>=3!",call.=FALSE)
+    }
+    colnames(para)<-toupper(colnames(para))
+    cnames<-c("CHROM","START","END")
+    if( !all(cnames%in%colnames(para)) ){
+      tp1<-"\nCol names in the 'annotation' data do not match valid labels!\n"
+      tp2<-"Please, revise the 'annotation' format:\n"
+      tp3<-"Name col1: <CHROM> chromosome name\n"
+      tp4<-"Name col2: <START> start position\n"
+      tp5<-"Name col3: <END> end position\n"
+      tp6<-"Name col4: <ID> any genomic id or name of the line\n"
+      stop(tp1,tp2,tp3,tp4,tp5,tp6,call.=FALSE)
+    }
+    if(ncol(para)==3){
+      para$ID<-paste(para$CHROM,para$START,para$END,sep="_")
+    } else {
+      para<-para[,1:4]
+    }
+    idx<-c(which(!colnames(para)%in%cnames),match(cnames,colnames(para)))
+    para<-para[,idx,drop=FALSE]
+    #---
+    idlab<-colnames(para)[1]
+    if(any(duplicated(para[,1]))){
+      stop("Input data should have no duplicated annotation!",call.=FALSE)
+    }
+    colnames(para)[1]<-"ID"
+    #---
+    sapply(1:ncol(para),function(i){
+      tp<-para[,i]
+      if( any( is.na(tp) || any(tp=="") ) ){
+        stop("'annotation' matrix should have no 'NA' or empty values!",call.=FALSE)      
+      }
+      if(is.list(tp))para[,i]<<-unlist(tp)
+    })
+    #---
+    para$ID<-as.character(para$ID)
+    para$CHROM<-as.character(para$CHROM)
+    chrs<-c(paste("chr",1:22,sep=""),"chrX","chrY")
+    chrChecks<-!para$CHROM%in%chrs
+    if( any(chrChecks) ){
+      n<-sum(chrChecks)/length(chrChecks)
+      tp1<-paste("chromosome values in 'annotation' should be listed in ", sep="")
+      tp2<-"[chr1, chr2, chr3, ..., chr22, chrX]!"
+      if(n>0.95){
+        stop(tp1,tp2,call.=FALSE)
+      } else {
+        nonvalid<-paste(unique(para$CHROM[chrChecks]),collapse=", ")
+        tp3<-"\n...the following values were removed: "
+        warning(tp1,tp2,tp3,nonvalid,call.=FALSE)
+        para<-para[!chrChecks,]
+      }
+    }
+    #---
+    b1<-is.integer(para$START) || is.numeric(para$START)
+    b2<-is.integer(para$END) || is.numeric(para$END)
+    if( !(b1 && b2) ){
+      stop("Chromosome start/end positions in 'annotation' should be integer or numeric vectors!",call.=FALSE)
+    }
+    rownames(para)<-para$ID
+    return(para)
+  }
+  else if(name=="annotation.evse"){
     if( !is.data.frame(para) || ncol(para)!=4 ){
       stop("'annotation' should be a dataframe with ncol=4 !",call.=FALSE)
     }

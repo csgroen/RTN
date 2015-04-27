@@ -6,7 +6,7 @@
 #--------------------------------------------------------------------------
 avs.plot1<-function(object, what="vse", fname=what, ylab="genomic annotation",
                     xlab="Number of clusters mapping to genomic annotation",
-                    nsplit=2, maxy=200, pValueCutoff=1e-2, width=8, height=3){
+                    breaks="Sturges", maxy=200, pValueCutoff=1e-2, width=8, height=3){
   #checks
   if(class(object)!="AVS"){
     stop("not an 'AVS' object!")
@@ -15,7 +15,6 @@ avs.plot1<-function(object, what="vse", fname=what, ylab="genomic annotation",
   tnai.checks(name="fname",para=fname)
   tnai.checks(name="ylab",para=ylab)
   tnai.checks(name="xlab",para=xlab)
-  tnai.checks(name="nsplit",para=nsplit)
   tnai.checks(name="maxy",para=maxy)
   tnai.checks(name="pValueCutoff",para=pValueCutoff)
   tnai.checks(name="width",para=width)
@@ -25,7 +24,7 @@ avs.plot1<-function(object, what="vse", fname=what, ylab="genomic annotation",
     for(ix in names(object@results[[what]])){
       resavs<-object@results[[what]][[ix]]
       avsplot1(resavs$mtally,resavs$nulldist,fname=paste(fname,"_",ix,sep=""),
-               ylab=ylab, xlab=xlab, nsplit=nsplit, maxy=maxy, 
+               ylab=ylab, xlab=xlab, breaks=breaks, maxy=maxy, 
                pValueCutoff=pValueCutoff, width=width,height=height)
     }
   } else {
@@ -36,11 +35,12 @@ avs.plot1<-function(object, what="vse", fname=what, ylab="genomic annotation",
 #--------------------------------------------------------------------------
 avs.plot2<-function(object, what="evse", fname=what, width=14, height=2.5,
                     rmargin=1, bxseq=seq(-4,8,2), decreasing=TRUE, ylab="Annotation",
-                    xlab="Clusters of risk-associated and linked SNPs"){
+                    xlab="Clusters of risk-associated and linked SNPs", tfs=NULL){
   if(class(object)!="AVS"){
     stop("not an 'AVS' object!")
   }
   tnai.checks(name="avs.plot.what",para=what)
+  tnai.checks(name="tfs",para=tfs)
   tnai.checks(name="fname",para=fname)
   tnai.checks(name="width",para=width)
   tnai.checks(name="height",para=height)
@@ -55,6 +55,9 @@ avs.plot2<-function(object, what="evse", fname=what, width=14, height=2.5,
     if(any(names(stats)=="escore")){
       stats$score<-stats$escore #just to correct label!
     }
+    if(!is.null(tfs)){
+      stats<-gettfs(stats,tfs)
+    }
     ucounts<-object@results$counts[[what]]
     avsplot2(stats=stats,ucounts=ucounts,fname=fname, height=height, width=width, rmargin=rmargin, 
              bxseq=bxseq, ylab=ylab, xlab=xlab, label=toupper(what),decreasing=decreasing)
@@ -62,15 +65,24 @@ avs.plot2<-function(object, what="evse", fname=what, width=14, height=2.5,
     warning(paste("NOTE:",toupper(what),"results not available!"),call. = FALSE)
   }
 }
+gettfs<-function(stats,tfs){
+  if(!all(tfs %in% colnames(stats$mtally))){
+    stop("All 'tfs' should be available in the AVS object!")
+  }
+  stats$mtally<-stats$mtally[,tfs]
+  stats$nulldist<-stats$nulldist[,tfs]
+  stats$score<-stats$score[tfs]
+  stats$pvalue<-stats$pvalue[tfs]
+  stats
+}
 
 ###########################################################################
 ###########################################################################
 
 #-------------------------------------------------------------------------
-avsplot1<-function(mtally,nulldist,fname,ylab, xlab, nsplit, maxy, 
+avsplot1<-function(mtally,nulldist,fname,ylab, xlab, breaks, maxy, 
                    pValueCutoff,width,height){
   nclusters<-length(mtally)
-  nsplit<-nclusters/nsplit
   mtally<-sum(mtally)
   pdf(file=paste(fname,".pdf",sep=""),width=width,height=height)
   xlim=c(0,nclusters)
@@ -81,7 +93,7 @@ avsplot1<-function(mtally,nulldist,fname,ylab, xlab, nsplit, maxy,
   plot(0,ylim=ylim,xlim=xlim,type="n",axes=FALSE, ylab=paste(ylab,"\n(frequency)",sep=""), xlab="")
   axis(2,yaxp=c(0,ylim[2],4),las=2,cex.axis=0.8,pos=-1.5)
   lines(y=c(0,0),x=c(0,xlim[2]), lty=5,cex=3)
-  hist(nulldist,axes=FALSE,main="",ylab="",add=TRUE,col="grey90",breaks=nsplit)
+  hist(nulldist,axes=FALSE,main="",ylab="",add=TRUE,col="grey90",breaks=breaks)
   #---plot 2
   par(mar=c(4,4.2,0,1),mgp=c(1.75,0.5,0),tcl=-0.2)
   plot(0,ylim=c(0,1.5),xlim=xlim,type="n",axes=FALSE, ylab="", xlab=xlab)

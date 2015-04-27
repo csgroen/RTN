@@ -11,7 +11,7 @@ This function takes an AVS object and plots results from the VSE and EVSE method
 
 \usage{
 avs.plot1(object, what="vse", fname=what, ylab="genomic annotation", 
-xlab="Number of clusters mapping to genomic annotation", nsplit=2, 
+xlab="Number of clusters mapping to genomic annotation", breaks="Sturges", 
 maxy=200, pValueCutoff=1e-2, width=8, height=3)
 }
 
@@ -31,8 +31,8 @@ a character value specifying the y-axis label.
 \item{xlab}{
 a character value specifying the x-axis label.
 }
-\item{nsplit}{
-an integer value setting the number of cells for the histogram.
+\item{breaks}{
+breaks in the histogram, see \code{\link[graphics:hist]{hist}} function.
 }
 \item{maxy}{
 a numeric value specifying the max y-limit.

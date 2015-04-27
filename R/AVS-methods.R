@@ -48,11 +48,13 @@ setMethod("initialize",
 setMethod(
   "avs.preprocess",
   "AVS",
-  function(object, nrand=1000, mergeColinked=TRUE, reldata="rel27CEU-NCBIB36", ldfilter="DprimeLOD", 
+  function(object, nrand=1000, mergeColinked=TRUE, reldata="RTNdata.LDrel27", ldfilter="DprimeLOD", 
            snpop=NULL, verbose=TRUE){
-    if( ! "package:RTNdata" %in% search() ){
-      stop("Please, in order to build an AVS the 'RTNdata' package should be installed!
-           This package is currently available under request <mauro.a.castro at gmail.com>.")
+    
+    if(reldata %in% .packages(all.available=TRUE) ){
+      require(reldata, character.only=TRUE)
+    } else {
+      stop(paste("Please, in order to build an AVS the '", reldata,"' package should be installed!", sep=""))
     }
     ##-----check input arguments
     tnai.checks(name="nrand",para=nrand)
@@ -61,7 +63,7 @@ setMethod(
     tnai.checks(name="ldfilter",para=ldfilter)
     tnai.checks(name="snpop",para=snpop)
     tnai.checks(name="verbose",para=verbose)
-    object@para$avs<-list(nrand=nrand)
+    object@para$avs<-list(nrand=nrand,reldata=reldata,ldfilter=ldfilter)
     object@summary$para$avs[1,]<-c(nrand,reldata,ldfilter)
     object@summary$markers[,"input"]<-length(object@markers)
     
@@ -72,8 +74,7 @@ setMethod(
     object@validatedMarkers<-sortPosition(object@validatedMarkers)
     
     #---build AVS
-    variantSet<-buildAVS(object@validatedMarkers, reldata=reldata, ldfilter=ldfilter, 
-                         verbose=verbose)
+    variantSet<-buildAVS(object@validatedMarkers, reldata=reldata, ldfilter=ldfilter, verbose=verbose)
     if(verbose)cat("\n")
     
     #---check co-linked AVS
@@ -87,8 +88,7 @@ setMethod(
     }
     
     #---build random AVS
-    randomSet<-buildRandomAVS(variantSet, nrand=nrand, reldata=reldata, 
-                              snpop=snpop, verbose=verbose)
+    randomSet<-buildRandomAVS(variantSet, nrand=nrand, reldata=reldata, snpop=snpop, verbose=verbose)
     
     #get IRanges
     if(verbose)cat("-Mapping AVS to range of integer values...\n")
@@ -112,12 +112,15 @@ setMethod(
     if(object@status["Preprocess"]!="[x]")stop("NOTE: input data need preprocessing!")
     
     #---initial checks
-    annotation<-tnai.checks(name="annotation",para=annotation)
+    if(ncol(annotation)<3 && !is.null(glist)){
+      stop("'annotation' input should also provide the IDs available the 'glist'! ")
+    }
+    annotation<-tnai.checks(name="annotation.vse",para=annotation)
     tnai.checks(name="maxgap",para=maxgap)
     tnai.checks(name="pValueCutoff",para=pValueCutoff)
     tnai.checks(name="boxcox",para=boxcox)
     tnai.checks(name="lab",para=lab)
-    tnai.checks(name="glist",para=glist)
+    glist<-tnai.checks(name="glist",para=glist)
     tnai.checks(name="minSize",para=minSize)
     tnai.checks(name="verbose",para=verbose)
     object@summary$para$vse[1,]<-c(maxgap,pValueCutoff,NA)
@@ -173,7 +176,7 @@ setMethod(
       return(NULL)
     })
     
-    #---map avs to annotation
+    #---map avs to annotation REVISAR esse chunk! (vide abaixo)
     annot<-getAnnotRanges(annotation,maxgap=maxgap,getTree=FALSE,getReduced=FALSE)
     annotdist<-getAnnotOverlap(vSet,annot)
     annotation$OverlapAVS<-FALSE
@@ -184,7 +187,10 @@ setMethod(
     #---compute enrichment stats
     object@results$stats$vse<-vseformat(object@results$vse,pValueCutoff=pValueCutoff,boxcox=boxcox)
     
-    #get universe counts (marker and gene counts)
+    #get universe counts (marker and annotation counts)
+    # REVISAR: contagem de anotacao nao relevante ao VSE, e desncessaria
+    # quando nao entrar com glist... providenciar remocao desse chunk...
+    # revisar correspondente no EVSE!!!
     universeCounts<-getUniverseCounts1(vSet,annotation,maxgap)
     object@results$counts$vse<-universeCounts
     
@@ -205,7 +211,7 @@ setMethod(
     if(object@status["Preprocess"]!="[x]")stop("NOTE: input data need preprocessing!")
     
     #---initial checks
-    annotation<-tnai.checks(name="annotation",para=annotation)
+    annotation<-tnai.checks(name="annotation.evse",para=annotation)
     tnai.checks(name="gxdata",para=gxdata)
     tnai.checks(name="maxgap",para=maxgap)
     tnai.checks(name="pValueCutoff",para=pValueCutoff)
@@ -426,10 +432,14 @@ setMethod(
       query<-getMarkers.vset(object@variantSet,getlinked=TRUE)
     } else if(what=="evse"){
       if(is.null(pValueCutoff))pValueCutoff<-object@para$evse$pValueCutoff
-      query<-vseformat(object@results$evse, pValueCutoff=pValueCutoff, boxcox=TRUE)
+      if(!is.null(object@results$evse)){
+        query<-vseformat(object@results$evse, pValueCutoff=pValueCutoff, boxcox=TRUE)
+      }
     } else if(what=="vse"){
       if(is.null(pValueCutoff))pValueCutoff<-object@para$vse$pValueCutoff
-      query<-vseformat(object@results$vse, pValueCutoff=pValueCutoff, boxcox=TRUE)
+      if(!is.null(object@results$vse)){
+        query<-vseformat(object@results$vse, pValueCutoff=pValueCutoff, boxcox=TRUE)
+      }
     } else if(what=="summary"){
       query<-object@summary
     } else if(what=="status"){

@@ -11,19 +11,6 @@
 ##with a gene set enrichment analysis for a collection of regulons.
 gsea1tna <- function(listOfRegulons, phenotype, exponent=1, 
                      nPermutations=1000,verbose=TRUE) {	 
-  ##convert names to integers if parallel  
-  b1<-"package:snow" %in% search()
-  b2<-tryCatch({
-    cl<-getOption("cluster")
-    cl.check<-FALSE
-    if(is(cl, "cluster")){
-      cl.check <- all( sapply(1:length(cl),function(i)isOpen(cl[[i]]$con) ) == TRUE )
-    }
-    cl.check
-  }, error=function(e){ FALSE 
-  })
-  isPar <- b1 && b2
-  
   #OBS1:names provided as integer values!
   #OBS2:max/min sizes checked in the previous functions!
   pheno.names <- as.integer(names(phenotype))
@@ -45,8 +32,8 @@ gsea1tna <- function(listOfRegulons, phenotype, exponent=1,
     perm.gL<-cbind(pheno.names,perm.gL)
     ##check if package snow has been loaded and a cluster object 
     ##has been created for HTSanalyzeR
-    if(isPar && nRegulons>1) {
-      if(verbose)cat("-Performing GSEA (parallel version)...\n")
+    if(isParallel() && nRegulons>1) {
+      if(verbose)cat("-Performing GSEA (parallel version - ProgressBar disabled)...\n")
       if(verbose)cat("--For", length(listOfRegulons), "regulons...\n")      
       scores <- gseaScoresBatchParallel4RTN(geneList=phenotype, geneNames.perm=perm.gL,
                                         collectionOfGeneSets=listOfRegulons,exponent=exponent,
@@ -80,19 +67,6 @@ gsea1tna <- function(listOfRegulons, phenotype, exponent=1,
 ##This function computes observed and permutation-based scores 
 gsea2tna <- function(listOfRegulons, phenotype, exponent=1, nPermutations=1000, 
                      verbose1=TRUE, verbose2=TRUE) {   
-  ##convert names to integers if parallel  
-  b1<-"package:snow" %in% search()
-  b2<-tryCatch({
-    cl<-getOption("cluster")
-    cl.check<-FALSE
-    if(is(cl, "cluster")){
-      cl.check <- all( sapply(1:length(cl),function(i)isOpen(cl[[i]]$con) ) == TRUE )
-    }
-    cl.check
-  }, error=function(e){ FALSE 
-  })
-  isPar <- b1 && b2
-
   #OBS1:names provided as integer values!
   #OBS2:max/min sizes checked in the previous functions!
   pheno.names <- as.integer(names(phenotype))
@@ -114,8 +88,8 @@ gsea2tna <- function(listOfRegulons, phenotype, exponent=1, nPermutations=1000,
     perm.gL<-cbind(pheno.names,perm.gL)
     ##check if package snow has been loaded and a cluster object 
     ##has been created for HTSanalyzeR
-    if(isPar && nRegulons>1) {
-      if(verbose1 && verbose2)cat("-Performing two-tailed GSEA (parallel version)...\n")
+    if(isParallel() && nRegulons>1) {
+      if(verbose1 && verbose2)cat("-Performing two-tailed GSEA (parallel version - ProgressBar disabled)...\n")
       if(verbose1 && verbose2)cat("--For", length(listOfRegulons), "regulons...\n")      
       scores <- gseaScoresBatchParallel4RTN(geneList=phenotype, geneNames.perm = perm.gL,
                                             collectionOfGeneSets=listOfRegulons,
@@ -153,23 +127,10 @@ gsea2tna <- function(listOfRegulons, phenotype, exponent=1, nPermutations=1000,
 ##..i.e. the null distribution is computed by resampling the union!
 pairwiseSynergy <- function(collectionsOfPairs, phenotype, exponent=1, 
                       nPermutations=1000, minIntersectSize=1, verbose=TRUE) {
-  
-  ##check if package snow has been loaded and 
-  ##a cluster object has been created  
-  b1<-"package:snow" %in% search()
-  b2<-tryCatch({
-    cl<-getOption("cluster")
-    cl.check<-FALSE
-    if(is(cl, "cluster")){
-      cl.check <- all( sapply(1:length(cl),function(i)isOpen(cl[[i]]$con) ) == TRUE )
-    }
-    cl.check
-  }, error=function(e){ FALSE 
-  })
   ##min intersect
   minter<-as.integer(minIntersectSize)*0.01
-  if(b1 && b2 && length(collectionsOfPairs)>1) {
-    if(verbose)cat("-Performing synergy analysis (parallel version)...\n")
+  if(isParallel() && length(collectionsOfPairs)>1) {
+    if(verbose)cat("-Performing synergy analysis (parallel version - ProgressBar disabled)...\n")
     if(verbose)cat("--For", length(collectionsOfPairs), "regulon pairs...\n")
     gseaScores<-gseaScores
     #get permutation scores
@@ -530,7 +491,7 @@ tna.hyper <- function(regulon1, universe, regulon2) {
   ##number of hits between regulons		
   k <- length(overlap) 							
   n <- length(regulon2)	
-  HGTresults <- phyper(k, m, Nm, n, lower.tail = F)
+  HGTresults <- phyper(k-1, m, Nm, n, lower.tail = F)
   ex <- (n/N)*m
   if(m == 0) HGTresults <- NA
   hyp.vec <- c(N, m, n, ex, k, HGTresults)
@@ -541,11 +502,7 @@ tna.hyper <- function(regulon1, universe, regulon2) {
 
 #--------------------------------------------------------------------
 #The next 2 functions were extracted from the old version of HTSanalyzeR
-#due to a compatibility issue:
-#...the authors introduced a correction in "phyper" function that is not
-#...required for RTN, and as result the corrected p-values are no longer
-#...reproducible! here the functions have minor changes only to keep the 
-#...compatibility!
+#due to a compatibility issues.
 #--------------------------------------------------------------------
 ##This function performs hypergeometric tests for over-representation 
 ##of hits, on a list of gene sets. This function applies the 
@@ -616,7 +573,7 @@ hyperGeoTest4RTN <- function(geneSet, universe, hits) {
   ##number of hits in gene set		
   k <- length(overlap) 							
   n <- length(hits)	
-  HGTresults <- phyper(k, m, Nm, n, lower.tail = F)
+  HGTresults <- phyper(k-1, m, Nm, n, lower.tail = F)
   ex <- (n/N)*m
   if(m == 0) HGTresults <- NA
   hyp.vec <- c(N, m, n, ex, k, HGTresults)
@@ -818,13 +775,10 @@ gseaScoresBatchParallel4RTN <- function(geneList, geneNames.perm,
     return(ES)	
   }
   #parallel computing
-  scores <- parSapply(getOption("cluster"), 1:length(collectionOfGeneSets), 
-                      function(i) {
-                        gseaScoresBatchLocal(geneList, geneNames.perm = geneNames.perm, 
-                                             geneSet = collectionOfGeneSets[[i]], 
-                                             exponent = exponent, 
-                                             nPermutations = nPermutations)
-                      }
+  scores <- parSapply(getOption("cluster"), 1:length(collectionOfGeneSets), function(i) {
+    gseaScoresBatchLocal(geneList, geneNames.perm = geneNames.perm, geneSet = collectionOfGeneSets[[i]], 
+                         exponent = exponent, nPermutations = nPermutations)
+  }
   )
   return(scores)
 }

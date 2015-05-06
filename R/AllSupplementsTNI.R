@@ -992,7 +992,7 @@ tni.phyper<-function(tnet){
     sample1<-sum(x>0)
     sample2<-colSums(xmat>0)
     overlap<-colSums(c==2)
-    resph<-phyper(overlap, sample1, pop - sample1, sample2, lower.tail=FALSE)
+    resph<-phyper(overlap-1, sample1, pop - sample1, sample2, lower.tail=FALSE)
     resph
   }
   pmat<-apply(tnet,2,phtest,xmat=tnet)

@@ -67,9 +67,8 @@ or not (when verbose=FALSE).
 #This example requires the RTNdata package! (currently available under request)
 library(RTNdata.LDrel27)
 data(bcarisk)
-avs <- new("AVS", markers=bcarisk$rsid)
-avs <- avs.preprocess(avs, randomSetSize=100)
-
+avs <- new("AVS", markers=bcarisk)
+avs <- avs.preprocess(avs, nrand=100)
 avs.get(avs)
 }
 }

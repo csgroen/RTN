@@ -1063,7 +1063,7 @@ setMethod(
         mask<-array(0,dim=dim(adjmt))
       }
       if(amapFilter=="phyper"){
-        #filter based phyper distribution (remove non-significant overlaps)
+        #filter based on phyper distribution (removes non-significant overlaps)
         if(is.null(amapCutoff))amapCutoff=0.01
         pvalue<-amapCutoff
         pmat<-tni.phyper(tnet)
@@ -1669,20 +1669,7 @@ run.shadow <- function(collectionsOfPairsR1, collectionsOfPairsR2, labpair, phen
   if(length(collectionsOfPairsR1)!=length(collectionsOfPairsR2)){
     stop("NOTE: 'collectionsOfPairsR1' and 'collectionsOfPairsR2' should have the same length!",call.=FALSE)
   }
-  
-  ##check if package snow has been loaded and 
-  ##a cluster object has been created
-  b1<-"package:snow" %in% search()
-  b2<-tryCatch({
-    cl<-getOption("cluster")
-    cl.check<-FALSE
-    if(is(cl, "cluster")){
-      cl.check <- all( sapply(1:length(cl),function(i)isOpen(cl[[i]]$con) ) == TRUE )
-    }
-    cl.check
-  }, error=function(e){ FALSE 
-  })
-  if( b1 && b2) {
+  if( isParallel() ) {
     if(verbose)cat("-Performing shadow analysis (parallel version - ProgressBar disabled)...\n")
   } else {
     if(verbose)cat("-Performing shadow analysis...\n")

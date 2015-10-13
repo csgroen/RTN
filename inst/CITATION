@@ -1,0 +1,12 @@
+citEntry(entry = "Article",
+  author = "Michael Fletcher and Mauro Castro and Xin Wang and Ines de Santiago and Martin O'Reilly and Suet-Feung Chin and  Oscar Rueda and Carlos Caldas and Bruce Ponder and Florian Markowetz and Kerstin Meyer",
+  title = "Master regulators of FGFR2 signalling and breast cancer risk.",
+  journal = "Nature Communications",
+  year = "2013",
+  volume = {4},
+  pages = {2464},
+  note = "RTN: reconstruction of transcriptional networks and analysis of master regulators. R package, 2013.",
+  doi = "10.1038/ncomms3464",
+  textVersion = "Castro MAA, Wang X, Fletcher MNC, Markowetz F, Meyer KB. RTN: reconstruction of transcriptional networks and analysis of master regulators. R package, 2013. http://bioconductor.org/packages/release/bioc/html/RTN.html"
+)
+

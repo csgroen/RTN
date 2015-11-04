@@ -54,7 +54,7 @@ or not (when verbose=FALSE).
 
 \dontrun{
 #This example requires the RTNdata package! (currently available under request)
-library(RTNdata.LDrel27)
+library(RTNdata.LDHapMap.rel27)
 data(bcarisk)
 avs <- new("AVS", markers=bcarisk)
 avs <- avs.preprocess(avs, nrand=100)

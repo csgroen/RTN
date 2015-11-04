@@ -357,8 +357,8 @@ setMethod(
   "TNA",
   function(object, pValueCutoff=0.05, pAdjustMethod="BH", minRegulonSize=15,
            tnet="dpi", verbose=TRUE) {
-    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input data need preprocessing!")
-    if(object@status$preprocess["hits"]!="[x]")stop("NOTE: input 'hits' is empty and/or need preprocessing!")
+    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input 'object' needs preprocessing!")
+    if(object@status$preprocess["hits"]!="[x]")stop("NOTE: input 'hits' is empty and/or needs preprocessing!")
     ##-----check and assign parameters
     tnai.checks(name="pValueCutoff",para=pValueCutoff)
     tnai.checks(name="pAdjustMethod",para=pAdjustMethod)
@@ -415,8 +415,8 @@ setMethod(
   function(object, pValueCutoff=0.05, pAdjustMethod="BH",  minRegulonSize=15, 
            nPermutations=1000, exponent=1, tnet="dpi", orderAbsValue=TRUE, stepFilter=TRUE, 
            tfs=NULL, verbose=TRUE) {
-    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input data need preprocessing!")
-    if(object@status$preprocess["phenotype"]!="[x]")stop("NOTE: input 'phenotype' is empty and/or need preprocessing!")
+    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input 'object' needs preprocessing!")
+    if(object@status$preprocess["phenotype"]!="[x]")stop("NOTE: input 'phenotype' is empty and/or needs preprocessing!")
     ##-----check and assign parameters
     tnai.checks(name="pValueCutoff",para=pValueCutoff)
     tnai.checks(name="pAdjustMethod",para=pAdjustMethod)
@@ -520,8 +520,8 @@ setMethod(
   "TNA",
   function(object, pValueCutoff=0.05, pAdjustMethod="BH",  minRegulonSize=15, 
            nPermutations=1000, exponent=1, tnet="dpi", stepFilter=TRUE, tfs=NULL, verbose=TRUE) {
-    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input data need preprocessing!")
-    if(object@status$preprocess["phenotype"]!="[x]")stop("NOTE: input 'phenotype' is empty and/or need preprocessing!")
+    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input 'object' needs preprocessing!")
+    if(object@status$preprocess["phenotype"]!="[x]")stop("NOTE: input 'phenotype' is empty and/or needs preprocessing!")
     ##-----check and assign parameters
     tnai.checks(name="pValueCutoff",para=pValueCutoff)
     tnai.checks(name="pAdjustMethod",para=pAdjustMethod)
@@ -674,7 +674,7 @@ setMethod(
   "TNA",
   function(object, pValueCutoff=0.05, pAdjustMethod="BH", minRegulonSize=15, 
            tnet="ref", tfs=NULL, verbose=TRUE) {  
-    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input data need preprocessing!")
+    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input 'object' needs preprocessing!")
     ##-----check and assign parameters
     tnai.checks(name="pValueCutoff",para=pValueCutoff)
     tnai.checks(name="pAdjustMethod",para=pAdjustMethod)
@@ -743,8 +743,8 @@ setMethod(
   "TNA",
   function(object, pValueCutoff=0.05, pAdjustMethod="BH", minRegulonSize=15, minIntersectSize=1,
            nPermutations=1000, exponent=1, tnet="ref", orderAbsValue=TRUE, stepFilter=TRUE, tfs=NULL, verbose=TRUE) {
-    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input data need preprocessing!")
-    if(object@status$preprocess["phenotype"]!="[x]")stop("NOTE: input 'phenotype' is empty and/or need preprocessing!")
+    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input 'object' needs preprocessing!")
+    if(object@status$preprocess["phenotype"]!="[x]")stop("NOTE: input 'phenotype' is empty and/or needs preprocessing!")
     ##-----check and assign parameters
     tnai.checks(name="pValueCutoff",para=pValueCutoff)
     tnai.checks(name="pAdjustMethod",para=pAdjustMethod)
@@ -865,8 +865,8 @@ setMethod(
   "TNA",
   function(object, pValueCutoff=0.05, pAdjustMethod="BH", minRegulonSize=15, minIntersectSize=1,
            nPermutations=1000, exponent=1, tnet="ref", orderAbsValue=TRUE, stepFilter=TRUE, tfs=NULL, verbose=TRUE) {
-    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input data need preprocessing!")
-    if(object@status$preprocess["phenotype"]!="[x]")stop("NOTE: input 'phenotype' is empty and/or need preprocessing!")
+    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input 'object' needs preprocessing!")
+    if(object@status$preprocess["phenotype"]!="[x]")stop("NOTE: input 'phenotype' is empty and/or needs preprocessing!")
     if(object@status$analysis["Overlap"]!="[x]"){
       cat("-invalid 'overlap' status! \n")
       stop("NOTE: shadow requires results from 'tna.overlap' analysis! \n\n")
@@ -1001,7 +1001,7 @@ setMethod(
     if( b1 || b2) {
       stop("\n\n ...conflict with 'igraph0': please use the new 'igraph' package!")
     }
-    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input data need preprocessing!")
+    if(object@status$preprocess["integration"]!="[x]")stop("NOTE: input 'object' needs preprocessing!")
     tnai.checks(name="tna.gtype",para=gtype)
     ##-----check input arguments
     tnai.checks(name="tnet",para=tnet)
@@ -1221,7 +1221,7 @@ data.integration<-function(object, verbose){
     if(max(col0)==nrow(annot)){
       col0 <- which(col0==max(col0))[1]
     } else {
-      col0<-0
+      col0 <- 0
     }
     #col with possible phenoIDs (phenotype and hits)
     phenoIDs<-unique(c(names(object@phenotype),object@hits))

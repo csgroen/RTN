@@ -32,24 +32,52 @@ tnai.checks <- function(name, para) {
       stop(paste("'avs.plot.what' should be any one of the options: \n", paste(opts,collapse = ", ") ),call.=FALSE )
   }
   else if(name=="reldata"){
-    opts<-c("RTNdata.LDrel27")
+    opts<-c("RTNdata.LDrel27","RTNdata.LDHapMap.rel27","RTNdata.LD1000g.rel20130502")
     if(!is.character(para) || length(para)!=1 || !(para %in% opts))
       stop(paste("available 'reldata':", paste(opts,collapse = ", ") ),call.=FALSE)
   }
-  else if(name=="ldfilter"){
-    opts<-c("DprimeLOD","Rsquare")
-    if(!is.character(para) || length(para)!=1 || !(para %in% opts))
-      stop(paste("available 'ldfilter':", paste(opts,collapse = ", ") ),call.=FALSE)
-  }
   else if(name=="snpop"){
-    if(!is.null(para)){
-      if( !(is.character(para) || is.numeric(para)) || any(is.na(para)) || any(para==""))
-        stop("'snpop' should be a character vector, without 'NA' or empty names!",call.=FALSE)
+    if(is.character(para)){
+      opts<-c("all","ld")
+      if(length(para)!=1 || !(para %in% opts))
+        stop(paste("available 'snpop' options:", paste(opts,collapse = ", ") ),call.=FALSE)
+    } else if(is.data.frame(para)){
+      if(ncol(para)<4 ){
+        stop("'snpop' should be a dataframe, a 'BED file' format with ncol >= 4 !",call.=FALSE)
+      }
+      para<-para[,1:4]
+      b1 <- !is.numeric(para[,2]) || !is.integer(para[,2])
+      b2 <- !is.numeric(para[,3]) || !is.integer(para[,3])
+      if(b1 || b2){
+        stop("'snpop' should have a 'BED file' format, with chromosomal positions as numerical or integer values!",call.=FALSE)
+      }
+      colnames(para)<-c("chrom","start","end","rsid")
+      para$chrom<-as.character(para$chrom)
+      para$rsid<-as.character(para$rsid)
+      para<-validateMarkers(para)
+      idx<-base::duplicated(para$rsid)
+      para<-para[!idx,]
+      rownames(para)<-para$rsid
+      para<-para[,c("rsid","chrom","position")]
+    } else {
+      stop("'snpop' should be a dataframe, a 'BED file' format with ncol >= 4 !",call.=FALSE)
     }
+    return(para)
   } 
   else if(name=="markers") {
-    if( !(is.character(para) || is.numeric(para)) || any(is.na(para)) || any(para==""))
-      stop("'markers' should be a character vector, without 'NA' or empty names!",call.=FALSE)
+    if( !is.data.frame(para) || ncol(para)<4 ){
+      stop("'markers' should be a dataframe, a 'BED file' format with ncol >= 4 !",call.=FALSE)
+    }
+    para<-para[,1:4]
+    b1 <- !is.numeric(para[,2]) || !is.integer(para[,2])
+    b2 <- !is.numeric(para[,3]) || !is.integer(para[,3])
+    if(b1 || b2){
+      stop("'markers' should have a 'BED file' format, with chromosomal positions as numerical or integer values!",call.=FALSE)
+    }
+    colnames(para)<-c("chrom","start","end","rsid")
+    para$chrom<-as.character(para$chrom)
+    para$rsid<-as.character(para$rsid)
+    return(para)
   }
   else if(name=="tni.gtype"){
     opts<-c("rmap","amap","amapDend","mmap","mmapDetailed")
@@ -375,8 +403,7 @@ tnai.checks <- function(name, para) {
       if( !( is.numeric(para) || is.integer(para) ) || length(para)==0 )
         stop("'phenotype' should be a named numeric or integer vector with length >0 !",call.=FALSE)
       if(is.null(names(para)))
-        stop("'phenotype' should be a named vector, without 'NA' or empty names!",call.=FALSE)  
-      
+        stop("'phenotype' should be a named vector, without 'NA' or empty names!",call.=FALSE)
     }
   }
   else if(name=="hits") {

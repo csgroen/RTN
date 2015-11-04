@@ -8,11 +8,11 @@ setMethod("initialize",
           "AVS",
           function(.Object, markers) {
             ##-----check arguments
-            if(missing(markers))stop("NOTE: 'markers' is missing!")            
-            tnai.checks(name="markers",markers)
+            if(missing(markers))stop("NOTE: 'markers' is missing!") 
+            markers=tnai.checks(name="markers",markers)
             ##-----initialization
-            .Object@markers<-markers
-            .Object@validatedMarkers<-data.frame()
+            .Object@validatedMarkers<-markers
+            .Object@markers<-markers$rsid
             .Object@variantSet<-list()
             .Object@randomSet<-list()
             .Object@results<-list()
@@ -27,7 +27,7 @@ setMethod("initialize",
             ##-----parameters
             sum.info.para <- list()
             sum.info.para$avs<-matrix(,1,3)
-            colnames(sum.info.para$avs)<-c("nrand","reldata","ldfilter")
+            colnames(sum.info.para$avs)<-c("nrand","reldata","snpop")
             rownames(sum.info.para$avs)<-"Parameter"
             sum.info.para$vse<-matrix(,1,3)
             colnames(sum.info.para$vse)<-c("maxgap","pValueCutoff","pAdjustMethod")
@@ -48,33 +48,33 @@ setMethod("initialize",
 setMethod(
   "avs.preprocess",
   "AVS",
-  function(object, nrand=1000, mergeColinked=TRUE, reldata="RTNdata.LDrel27", ldfilter="DprimeLOD", 
-           snpop=NULL, verbose=TRUE){
+  function(object, nrand=1000, mergeColinked=TRUE, reldata="RTNdata.LDHapMap.rel27", snpop="all", verbose=TRUE){
     
     if(reldata %in% .packages(all.available=TRUE) ){
       require(reldata, character.only=TRUE)
     } else {
       stop(paste("Please, in order to build an AVS the '", reldata,"' package should be installed!", sep=""))
     }
+    
     ##-----check input arguments
     tnai.checks(name="nrand",para=nrand)
     tnai.checks(name="mergeColinked",para=mergeColinked)
     tnai.checks(name="reldata",para=reldata)
-    tnai.checks(name="ldfilter",para=ldfilter)
-    tnai.checks(name="snpop",para=snpop)
     tnai.checks(name="verbose",para=verbose)
-    object@para$avs<-list(nrand=nrand,reldata=reldata,ldfilter=ldfilter)
-    object@summary$para$avs[1,]<-c(nrand,reldata,ldfilter)
+    snpop<-tnai.checks(name="snpop",para=snpop)
+    spflag<-ifelse(is.data.frame(snpop),"custom",snpop)
+    object@para$avs<-list(nrand=nrand,reldata=reldata,snpop=spflag)
+    object@summary$para$avs[1,]<-c(nrand,reldata,spflag)
     object@summary$markers[,"input"]<-length(object@markers)
-    
-    #---sort markers by chrom position
-    object@validatedMarkers<-getmarkers(object@markers)
+    object@validatedMarkers<-validateMarkers(object@validatedMarkers)
     object@summary$markers[,"valid"]<-nrow(object@validatedMarkers)
     if(nrow(object@validatedMarkers)<3)stop("not enough valid rs# markers!")
+    
+    #---sort markers by chrom position
     object@validatedMarkers<-sortPosition(object@validatedMarkers)
     
     #---build AVS
-    variantSet<-buildAVS(object@validatedMarkers, reldata=reldata, ldfilter=ldfilter, verbose=verbose)
+    variantSet<-buildAVS(object@validatedMarkers, reldata=reldata, verbose=verbose)
     if(verbose)cat("\n")
     
     #---check co-linked AVS
@@ -91,10 +91,9 @@ setMethod(
     randomSet<-buildRandomAVS(variantSet, nrand=nrand, reldata=reldata, snpop=snpop, verbose=verbose)
     
     #get IRanges
-    if(verbose)cat("-Mapping AVS to range of integer values...\n")
-    continued=FALSE
-    object@variantSet<-getAvsRanges(variantSet, continued=continued)
-    object@randomSet<-getRandomAvsRanges(randomSet, continued=continued, verbose=verbose)
+    if(verbose)cat("-Mapping AVS to ranges of integer values...\n")
+    object@variantSet<-getAvsRanges(variantSet, continued=FALSE)
+    object@randomSet<-getRandomAvsRanges(randomSet, continued=FALSE, verbose=verbose)
     
     ##-----update status and return results
     object@status["Preprocess"] <- "[x]"
@@ -171,7 +170,7 @@ setMethod(
     junk<-sapply(names(glist),function(lab){
       if(verbose)cat("--For ",lab,"...\n",sep="")
       annot<-getAnnotRanges(annotation[glist[[lab]],],maxgap=maxgap,getTree=getTree,getReduced=TRUE)
-      vse<-vsea(vSet,rSet,annot=annot)
+      vse<-vsea(vSet,rSet,annot=annot) 
       object@results$vse[[lab]]<<-vse
       return(NULL)
     })
@@ -188,7 +187,7 @@ setMethod(
     object@results$stats$vse<-vseformat(object@results$vse,pValueCutoff=pValueCutoff,boxcox=boxcox)
     
     #get universe counts (marker and annotation counts)
-    # REVISAR: contagem de anotacao nao relevante ao VSE, e desncessaria
+    # REVISAR: contagem de anotacao nao relevante p/ VSE, e desncessaria
     # quando nao entrar com glist... providenciar remocao desse chunk...
     # revisar correspondente no EVSE!!!
     universeCounts<-getUniverseCounts1(vSet,annotation,maxgap)
@@ -307,13 +306,6 @@ setMethod(
     vSet<-object@variantSet
     rSet<-object@randomSet
     
-    #if possible coerce IRanges to IntervalTree
-    #if(!isParallel()){
-    #  if(verbose)cat("-Coercing IRanges to IntervalTree...\n")
-    #  vSet<-coerceAvsRanges(object@variantSet)
-    #  rSet<-coerceRandomAvsRanges(object@randomSet)
-    #}
-    
     #---set marker ids to integer in order to improve computational performance  
     if(verbose)cat("-Mapping marker ids to 'snpdata'...\n")
     vSet<-mapvset(vSet,snpnames=rownames(snpdata))
@@ -356,7 +348,6 @@ setMethod(
       #---
       #object@results$evsemtx$probs<-getEvseMatrix(object,"probs")
       #object@results$evsemtx$fstat<-getEvseMatrix(object,"fstat")
-      #object@results$evsemtx$coef<-getEvseMatrix(object,"coef")
     } else {
       #---run evsea null
       nullproxy<-sapply(1:length(nproxy),function(i){
@@ -412,7 +403,7 @@ setMethod(
 setMethod(
   "avs.get",
   "AVS",
-  function(object, what="summary", pValueCutoff=NULL) {
+  function(object, what="summary", report=FALSE, pValueCutoff=NULL){
     ##-----check input arguments
     tnai.checks(name="avs.what",para=what)
     if(!is.null(pValueCutoff))tnai.checks(name="pValueCutoff",para=pValueCutoff)
@@ -434,11 +425,13 @@ setMethod(
       if(is.null(pValueCutoff))pValueCutoff<-object@para$evse$pValueCutoff
       if(!is.null(object@results$evse)){
         query<-vseformat(object@results$evse, pValueCutoff=pValueCutoff, boxcox=TRUE)
+        if(report)query<-vsereport(query)
       }
     } else if(what=="vse"){
       if(is.null(pValueCutoff))pValueCutoff<-object@para$vse$pValueCutoff
       if(!is.null(object@results$vse)){
         query<-vseformat(object@results$vse, pValueCutoff=pValueCutoff, boxcox=TRUE)
+        if(report)query<-vsereport(query)
       }
     } else if(what=="summary"){
       query<-object@summary

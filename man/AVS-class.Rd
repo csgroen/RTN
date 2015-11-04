@@ -19,7 +19,8 @@ Objects can be created by calls of the form \code{new("AVS", markers)}.
 
 \section{Slots}{
   \describe{
-    \item{\code{markers}:}{Object of class \code{"character"}, a character vector with rs# markers.
+    \item{\code{markers}:}{Object of class \code{"character"}, a data frame,
+    a 'BED file' format with rs# markers mapped to the same genome build of the LD source in the RTNdata package.
     }
     \item{\code{validatedMarkers}:}{Object of class \code{"data.frame"}, 
     a data frame with genome positions of the validated markers.
@@ -68,9 +69,9 @@ Mauro Castro
 
 \dontrun{
 #This example requires the RTNdata package! (currently available under request)
-library(RTNdata.LDrel27)
-data(bcarisk)
-avs <- new("AVS", markers=bcarisk$rsid)
+library(RTNdata.LDHapMap.rel27)
+data(bcarisk) #mapped to the same genome build of the RTNdata!
+avs <- new("AVS", markers=bcarisk)
 }
 }
 

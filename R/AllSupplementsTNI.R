@@ -612,21 +612,11 @@ tni.rmap<-function(tnet){
 ##return an adjacence matrix for regulons
 ##using jaccard coefficient
 tni.amap<-function(tnet, overlap="all"){
-  if(overlap=="pos"){
+  if(overlap=="agreement"){
     tnet[tnet>0]<-1;tnet[tnet<0]<--1
     jc<-function(x,xmat){
       c<-x*xmat
       a<-colSums(c==1)
-      c<-abs(x)+abs(xmat)
-      b<-colSums(c!=0)
-      b[b==0]=1
-      a/b
-    }
-  } else if(overlap=="neg"){
-    tnet[tnet>0]<-1;tnet[tnet<0]<--1
-    jc<-function(x,xmat){
-      c<-x*xmat
-      a<-colSums(c==-1)
       c<-abs(x)+abs(xmat)
       b<-colSums(c!=0)
       b[b==0]=1

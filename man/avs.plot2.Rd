@@ -44,7 +44,7 @@ a logical value, used to sort by EVSE scores.
 a character value specifying the y-axis label.
 }
 \item{xlab}{
-aa character value specifying the x-axis label (on the top of the grid image).
+a character value specifying the x-axis label (on the top of the grid image).
 }
 \item{tfs}{
 an optional vector with annotation identifiers (e.g. transcription factor).

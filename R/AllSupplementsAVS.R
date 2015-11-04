@@ -42,18 +42,19 @@ sortAnnotation<-function(annotation){
 
 ##-------------------------------------------------------------------------
 ## build AVS
-buildAVS<-function(mysnps, reldata="RTNdata.LDrel27", ldfilter="DprimeLOD", verbose=TRUE){
+buildAVS<-function(mysnps, reldata="RTNdata.LDHapMap.rel27", verbose=TRUE){
   #set valid chroms
   chrs<-c(paste("chr",1:22,sep=""),"chrX")
   if(verbose){
-    if(reldata=="RTNdata.LDrel27") cat("Building AVS from HapMap LD data (CEU, rel #27, NCBI B36)...\n")
+    if(reldata=="RTNdata.LDHapMap.rel27") cat("Building AVS from HapMap LD data (CEU population, release #27, NCBI-B36/hg18)...\n")
+    if(reldata=="RTNdata.LD1000g.rel20130502")cat("Building AVS from 1000 Genomes LD data (CEU population, release #20130502, GRCh37/hg19)...\n")
   }
   variantSet<-list()
   for(chr in chrs){
     snps<-mysnps[mysnps$chrom==chr,,drop=FALSE]
     if(verbose) cat("...",nrow(snps)," marker(s) from ",chr,"!\n",sep="")
     if(nrow(snps)>0){
-      ld_data<-getldata(chr,ldfilter, package=reldata)
+      ld_data<-getldata(chr,package=reldata)
       marker1<-data.table(marker=ld_data$marker1,ord=1:nrow(ld_data))
       marker2<-data.table(marker=ld_data$marker2,ord=1:nrow(ld_data))
       setkey(marker1,'marker')
@@ -110,44 +111,65 @@ check.colinked<-function(variantSet, verbose=TRUE){
 
 ##-------------------------------------------------------------------------
 ## build random AVS
-#for(i in 1:length(variantSet))print(length(variantSet[[i]]))
-buildRandomAVS<-function(variantSet, nrand=100, reldata="RTNdata.LDrel27", ldfilter="DprimeLOD", snpop=NULL, verbose=TRUE){
+buildRandomAVS<-function(variantSet, nrand=100, reldata="RTNdata.LDHapMap.rel27", snpop="all", verbose=TRUE){
+  
   #set valid chroms
   chrs<-c(paste("chr",1:22,sep=""),"chrX")
   if(verbose){
-    if(reldata=="RTNdata.LDrel27") cat("Building matched random AVS from HapMap LD data (CEU, rel #27, NCBI B36)...\n")
+    if(reldata=="RTNdata.LDHapMap.rel27") cat("Building matched random AVS from HapMap LD data (CEU population, release #27, NCBI-B36/hg18)...\n")
+    if(reldata=="RTNdata.LD1000g.rel20130502")cat("Building matched random AVS from 1000 Genomes LD data (CEU population, release #20130502, GRCh37/hg19)...\n")
   }
+  
+  #count observed clusters in the variantSet
+  clCount<-unlist(sapply(1:length(variantSet),function(i){
+    unlist(lapply(variantSet[[i]],length))
+  }))
+  ncl1<-sum(clCount==1);ncl2<-sum(clCount>1)
+  
+  #get all markers in the variantSet
+  allvset<-getMarkers.vset(variantSet,TRUE)
+  
   #get popsnps
-  data('popsnps', package=reldata, envir=environment())
-  popsnps<-get("popsnps")
-  popsnps<-popsnps[popsnps$chrom%in%chrs,]
-  #get all markers from the variantSet
-  vset<-getMarkers.vset(variantSet,TRUE)
-  #filter popsnps
-  if(!is.null(snpop)){
-    popsnps<-popsnps[popsnps$rsid%in%snpop,]
-    if(nrow(popsnps)<=(length(vset)*2)){
-      stop("NOTE: not enough valid markers in 'snpop'!",call.=FALSE)
-    } else if(nrow(popsnps)<length(snpop)){
-      n<-length(snpop)-nrow(popsnps)
-      warning("NOTE: ",n," marker(s) from 'snpop' not represented in the '",reldata,"' LD dataset!")
+  if(is.data.frame(snpop)){
+    #custom option: 'snp population' is defined by the user!
+    popsnps<-snpop[snpop$chrom%in%chrs,]
+    if(nrow(popsnps)<=(length(allvset)*2))
+      stop("NOTE: not enough valid markers in the input 'snpop'!",call.=FALSE)
+  } else {
+    #default option: pre-computed 'snp population' based on a reference dataset (eg dbSNP, HapMap, 1000g)
+    data('popsnps', package=reldata, envir=environment())
+    popsnps<-get("popsnps")
+    #corrected option: pre-computed 'snp population' is corrected to the observed LD clusters
+    if(snpop=="ld"){
+      ldpop<-getLdPop(package=reldata,verbose=verbose)
+      nm<-min(nrow(popsnps),nrow(ldpop))
+      popsnps<-popsnps[sample(nrow(popsnps),nm),]
+      ldpop<-ldpop[sample(nrow(ldpop),nm),]
+      if(ncl1>ncl2){
+        np <- ceiling(nm*(ncl1/(ncl1+ncl2)))
+        popsnps <- rbind( popsnps, ldpop[sample(nm,np), ] )
+      } else {
+        np <- ceiling(nm*(ncl2/(ncl1+ncl2)))
+        popsnps <- rbind( ldpop, popsnps[sample(nm,np), ] )
+      }
     }
+    if(nrow(popsnps)<=(length(allvset)*2))
+      stop("NOTE: not enough RTN internal markers to build the random sets for the input data/options!",call.=FALSE)
   }
+  
   #remove variantSet from popsnp
-  popsnps<-popsnps[!popsnps$rsid%in%vset,]
-  #get risk markers
-  vset<-getMarkers.vset(variantSet,FALSE)
-  #get random markers
-  randmarkers<-sapply(1:nrand,function(i){
-    sample.int(n=nrow(popsnps),size=length(vset))
-  })
-  #---build randomSet by chrom
-  if(verbose) cat("Extracting random sets...\n")
+  popsnps<-popsnps[!popsnps$rsid%in%allvset,]
+  
+  #get risk markers only
+  nvset<-length(getMarkers.vset(variantSet,FALSE))
+
+  #---build randomSet -- by chroms, to speed the process
+  if(verbose) cat("Computing random sets...\n")
   randomSet<-list()
   for(chr in chrs){
     if(verbose) cat("",chr,"\n",sep="")
-    ld_data<-getldata(chr,ldfilter, package=reldata)
-    marker1<-data.table(marker=ld_data$marker1,ord=1:nrow(ld_data))
+    ld_data<-getldata(chr,package=reldata)
+    marker1<-data.table(marker=ld_data$marker1,ord=1:nrow(ld_data)) 
     marker2<-data.table(marker=ld_data$marker2,ord=1:nrow(ld_data))
     setkey(marker1,'marker')
     setkey(marker2,'marker')
@@ -155,7 +177,7 @@ buildRandomAVS<-function(variantSet, nrand=100, reldata="RTNdata.LDrel27", ldfil
     if(verbose) pb <- txtProgressBar(style=3)
     rSet<-lapply(1:nrand,function(i){
       if(verbose) setTxtProgressBar(pb, i/nrand)
-      snps<-popsnps[randmarkers[,i],]
+      snps<-popsnps[sample.int(n=nrow(popsnps),size=nvset),]
       snps<-snps[snps$chrom==chr,,drop=FALSE]
       if(nrow(snps)>0){
         rset<-list()
@@ -291,16 +313,22 @@ maprset<-function(rSet,snpnames,verbose=TRUE){
 }
 
 ##-------------------------------------------------------------------------
-##get rs# markers from internal dataset
-getmarkers<-function(markers,reldata="RTNdata.LDrel27"){
-  data('popsnps', package=reldata, envir=environment())
-  popsnps<-get("popsnps")
-  markers<-popsnps[popsnps$rsid%in%markers,,drop=FALSE]
+##validate rs# markers (use for both input 'markers' and eventual 'snpop')
+validateMarkers<-function(markers){
+  chrs<-c(paste("chr",1:22,sep=""),"chrX")
+  markers<-markers[markers$chrom%in%chrs,]
+  markers<-markers[!is.na(markers$chrom),]
+  markers<-markers[!is.na(markers$start),]
+  markers<-markers[!is.na(markers$end),]
+  markers<-markers[!is.na(markers$rsid),]
+  markers$position<-markers$start
   return(markers)
 }
 
 ##-------------------------------------------------------------------------
 ##get IRanges for the AVS
+##..obs: 'continued' refers to a LD block, represented by the extremes
+##  (if TRUE) or by all markers in LD (if FALSE)
 getAvsRanges<-function(vSet, continued=FALSE){
   clustersRanges<-sapply(1:length(vSet),function(i){
     chr<-names(vSet[i])
@@ -318,7 +346,6 @@ getAvsRanges<-function(vSet, continued=FALSE){
       }
       clRanges<<-c(clRanges,query)
     })
-    #if(getTree)clRanges<-IntervalTree(clRanges)
     clRanges@metadata$chr<-chr
     clRanges@metadata$markers<-names(blocks)
     clRanges@metadata$blocks<-blocks
@@ -338,32 +365,8 @@ getRandomAvsRanges<-function(rSet, continued=FALSE, verbose=TRUE){
   if(verbose)close(pb)
   clustersRanges
 }
-##coerce avs: IRanges to IntervalTree
-coerceAvsRanges<-function(vSet){
-  clustersRanges<-sapply(1:length(vSet),function(i){
-    clRanges<-IntervalTree(vSet[[i]])
-    clRanges@metadata$chr<-vSet[[i]]@metadata$chr
-    clRanges@metadata$markers<-vSet[[i]]@metadata$markers
-    clRanges@metadata$blocks<-vSet[[i]]@metadata$blocks
-    clRanges@metadata$index<-vSet[[i]]@metadata$index
-    clRanges
-  })
-  names(clustersRanges)<-names(vSet)
-  return(clustersRanges)
-}
-##coerce random avs: IRanges to IntervalTree
-coerceRandomAvsRanges<-function(rSet,verbose=TRUE){
-  if(verbose) pb <- txtProgressBar(style=3)
-  clustersRanges<-lapply(1:length(rSet),function(i){
-    if(verbose) setTxtProgressBar(pb, i/length(rSet)) 
-    coerceAvsRanges(rSet[[i]])
-  })
-  if(verbose)close(pb)
-  clustersRanges
-}
-##get IRanges/IntervalTree for annotation
-getAnnotRanges<-function(annotation,maxgap=0, getTree=TRUE, 
-                         getReduced=FALSE){
+##get IRanges for annotation
+getAnnotRanges<-function(annotation,maxgap=0, getTree=TRUE, getReduced=FALSE){
   annot<-annotation
   idx<-annot$START>annot$END
   annot$START[idx]<-annotation$END
@@ -378,7 +381,7 @@ getAnnotRanges<-function(annotation,maxgap=0, getTree=TRUE,
     end<-as.integer(annot$END+maxgap)
     subject<-IRanges(start, end, names=annot$ID)
     if(getReduced)subject<-reduce(subject)
-    if(getTree)subject<-IntervalTree(subject)
+    if(getTree)subject<-IRanges::NCList(subject)
     subject@metadata<-list(mappedAnnotations=annot$ID)
     subject
   })
@@ -426,8 +429,6 @@ getEvseMatrix<-function(object,what="probs"){
     vl=1;cl="Pr(>F)";efun=min
   } else if(what=="fstat"){
     vl=0;cl="F";efun=max
-  } else if(what=="coef") {
-    vl=0;cl=".R2";efun=function(x)x[which.max(abs(x))]
   }
   junk<-sapply(names(object@results$evse),function(reg){
     eqtls<-object@results$evse[[reg]]$eqtls
@@ -446,7 +447,17 @@ getEvseMatrix<-function(object,what="probs"){
   rownames(evsemtx)<-names(object@results$evse)
   evsemtx
 }
-
+getEvseEqtls<-function(object,tfs=NULL){
+  if(is.null(tfs))tfs<-colnames(object@results$stats$evse$mtally)
+  tp<-object@results$evse[tfs]
+  res<-NULL
+  for(tf in tfs){
+    tpp<-tp[[tf]]$eqtls
+    tpp<-data.frame(Regulon=tf,tpp,check.names = FALSE,stringsAsFactors = FALSE)
+    res<-rbind(res,tpp)
+  }
+  res
+}
 
 ###########################################################################
 ## VSE analysis
@@ -1037,7 +1048,7 @@ vseformat<-function(resavs, pValueCutoff=0.01, boxcox=TRUE){
     score<-ptdist[nrow(ptdist),]
     nulldist<-ptdist[-nrow(ptdist),,drop=FALSE]
     pvals<-pnorm(score, lower.tail=FALSE)
-    # (NEW) correct distributions not able of transformation and
+    # (NEW) it corrects distributions not able of transformation and
     # obvious non-significant cases introduced by distortions of 
     # very sparse null distributions or absence of observations
     # in the mapping tally
@@ -1066,6 +1077,27 @@ vseformat<-function(resavs, pValueCutoff=0.01, boxcox=TRUE){
   }
   return(list(mtally=mtally,nulldist=nulldist,score=score,pvalue=pvals,ci=ci))
 }
+
+#-------------------------------------------------------------------------
+vsereport<-function(obj){
+  if(any(names(obj)=="escore")){
+    obj$score<-obj$escore #just to correct a label!
+  }
+  mtally<-t(obj$mtally)
+  mtally[,]<-as.integer(mtally)
+  score<-obj$score
+  pvalue<-obj$pvalue
+  null<-t(boxplot(obj$nulldist, plot = FALSE)$stats)
+  colnames(null)<-paste("q",1:5,sep="")
+  report<-data.frame(Annotation=names(score),Pvalue=format(round(-log10(pvalue),3)), Score=format(round(score,3)), format(round(null,3)), mtally, stringsAsFactors = FALSE)
+  rownames(report)<-NULL
+  tp<-rowSums(mtally);tp<-tp/sum(tp)
+  idx<-sort.list(score+tp,decreasing=TRUE)
+  report<-report[idx,]
+  return(report)
+}
+
+#-------------------------------------------------------------------------
 shtest<-function(null){
   nnull<-length(null)
   nd<-as.integer(nnull*0.05)
@@ -1091,9 +1123,9 @@ isParallel<-function(){
 
 ##-------------------------------------------------------------------------
 ## get ld data from RTNdata
-getldata<-function(chrom="chr22",ldfilter="DprimeLOD", package="RTNdata.LDrel27"){
+getldata<-function(chrom="chr22",package="RTNdata.LDHapMap.rel27"){
   chrs<-c(paste("chr",1:22,sep=""),"chrX")
-  if(chrom==chrs[1]){data('ldatachr1', envir=environment());ldata<-get("ldatachr1")
+  if(chrom==chrs[1]){data('ldatachr1', package=package, envir=environment());ldata<-get("ldatachr1")
   } else if(chrom==chrs[2]){data('ldatachr2', package=package, envir=environment());ldata<-get("ldatachr2")
   } else if(chrom==chrs[3]){data('ldatachr3', package=package, envir=environment());ldata<-get("ldatachr3")
   } else if(chrom==chrs[4]){data('ldatachr4', package=package, envir=environment());ldata<-get("ldatachr4")
@@ -1117,10 +1149,35 @@ getldata<-function(chrom="chr22",ldfilter="DprimeLOD", package="RTNdata.LDrel27"
   } else if(chrom==chrs[22]){data('ldatachr22', package=package, envir=environment());ldata<-get("ldatachr22")
   } else if(chrom==chrs[23]){data('ldatachrX', package=package, envir=environment());ldata<-get("ldatachrX")
   }
-  if(ldfilter=="DprimeLOD"){
-    ldata<-ldata[ldata$DPLOD>0,]
-  } else {
-    ldata<-ldata[ldata$Rsquare>0,]
-  }
   return(ldata)
 }
+## get snps from RTNdata after the LD threshold is applyed
+getLdPop<-function(package="RTNdata.LDHapMap.rel27",scaledown=TRUE, verbose=TRUE){
+  chrs<-c(paste("chr",1:22,sep=""),"chrX")
+  popsnps<-NULL
+  if(verbose) cat("Extracting 'snpop' from LD data...\n")
+  if(verbose) pb <- txtProgressBar(style=3)
+  for(i in 1:length(chrs)){
+    if(verbose) setTxtProgressBar(pb, i/length(chrs))
+    chr<-chrs[i]
+    ldata<-getldata(chr,package)
+    tp1<-ldata[!base::duplicated(ldata$marker1),c("marker1","position1")]
+    tp2<-ldata[!base::duplicated(ldata$marker2),c("marker2","position2")]
+    tp2<-tp2[!tp2$marker2%in%tp1$marker1,]
+    colnames(tp1)<-colnames(tp2)<-c("rsid","position")
+    tp1<-rbind(tp1,tp2)
+    tp1<-tp1[sort.list(tp1$position),]
+    tp1<-data.frame(rsid=tp1$rsid,chrom=chr,position=tp1$position,stringsAsFactors = FALSE)
+    if(scaledown){
+      n<-ceiling(nrow(tp1)*0.1)
+      tp1<-tp1[sample(nrow(tp1),n),]
+    }
+    popsnps<-rbind(popsnps,tp1)
+  }
+  if(verbose) close(pb)
+  popsnps<-popsnps[!base::duplicated(popsnps$rsid),]
+  rownames(popsnps)<-NULL
+  popsnps
+}
+
+

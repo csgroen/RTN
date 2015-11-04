@@ -6,7 +6,7 @@
 ##Plot enrichment analysis from TNA objects.
 tna.plot.gsea1<-function(object,  labPheno="tna", file=labPheno, filepath=".", regulon.order="size", 
                          ntop=NULL, tfs=NULL, ylimPanels=c(0.0,3.5,0.0,0.8), heightPanels=c(1,1,3), 
-                         width=6, height=5, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
+                         width=5, height=4, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
                          xlab="Position in the ranked list of genes", alpha=0.5, sparsity=10, 
                          autoformat=TRUE, ...) {
   #checks
@@ -59,7 +59,7 @@ tna.plot.gsea1<-function(object,  labPheno="tna", file=labPheno, filepath=".", r
   ##-----send to a common plot function
   plot.gsea1(resgsea=resgsea, rgcs=rgcs, phenotype=phenotype, 
              orderAbsValue=orderAbsValue, nPermutations=nPermutations, 
-             exponent=exponent, file=file, filepath=filepath, 
+             exponent=exponent, labPheno=labPheno, file=file, filepath=filepath, 
              regulon.order=regulon.order,ylimPanels=ylimPanels,   
              heightPanels=heightPanels, width=width, height=height,
              ylabPanels=ylabPanels,xlab=xlab,alpha=alpha, sparsity=sparsity, 

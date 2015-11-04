@@ -67,8 +67,7 @@ setGeneric("tna.get",
              standardGeneric("tna.get"), package="RTN")
 ##-------------------------------------------------------------------------
 setGeneric("avs.preprocess",
-           function(object, nrand=1000, mergeColinked=TRUE, reldata="RTNdata.LDrel27", 
-                    ldfilter="DprimeLOD", snpop=NULL, verbose=TRUE)
+           function(object, nrand=1000, mergeColinked=TRUE, reldata="RTNdata.LDHapMap.rel27", snpop="all", verbose=TRUE)
              standardGeneric("avs.preprocess"), package="RTN")
 setGeneric("avs.vse",
            function(object, annotation, maxgap=0, pValueCutoff=0.05, boxcox=TRUE, 
@@ -80,7 +79,7 @@ setGeneric("avs.evse",
                     fineMapping=TRUE, verbose=TRUE)
              standardGeneric("avs.evse"), package="RTN")
 setGeneric("avs.get",
-           function(object, what="summary", pValueCutoff=NULL) 
+           function(object, what="summary", report=FALSE, pValueCutoff=NULL) 
              standardGeneric("avs.get"), package="RTN")
 
 

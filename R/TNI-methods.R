@@ -158,7 +158,7 @@ setMethod(
   "TNI",
   function(object, pValueCutoff=0.01, pAdjustMethod="BH", globalAdjustment=TRUE, estimator="pearson",
            nPermutations=1000, pooledNullDistribution=TRUE, parChunks=50, verbose=TRUE){
-    if(object@status["Preprocess"]!="[x]")stop("NOTE: input data need preprocessing!")
+    if(object@status["Preprocess"]!="[x]")stop("NOTE: input 'object' needs preprocessing!")
     ##-----check and assign parameters
     tnai.checks(name="pValueCutoff",para=pValueCutoff)
     tnai.checks(name="pAdjustMethod",para=pAdjustMethod)
@@ -197,8 +197,8 @@ setMethod(
   "TNI",
   function(object, estimator="pearson", nBootstraps=100, consensus=95, 
            parChunks=10, verbose=TRUE){
-    if(object@status["Preprocess"]!="[x]")stop("NOTE: input data need preprocessing and permutation analysis!")
-    if(object@status["Permutation"]!="[x]")stop("NOTE: input data need permutation analysis!")
+    if(object@status["Preprocess"]!="[x]")stop("NOTE: input 'object' needs preprocessing and permutation analysis!")
+    if(object@status["Permutation"]!="[x]")stop("NOTE: input 'object' needs permutation analysis!")
     ##-----check and assign parameters
     tnai.checks(name="estimator",para=estimator)  
     tnai.checks(name="nBootstraps",para=nBootstraps)    
@@ -225,7 +225,7 @@ setMethod(
   "tni.dpi.filter",
   "TNI",
   function(object, eps=0, verbose=TRUE){
-    if(object@status["Permutation"]!="[x]")stop("NOTE: input data need permutation/bootstrep analysis!")
+    if(object@status["Permutation"]!="[x]")stop("NOTE: input 'object' needs permutation/bootstrep analysis!")
     ##-----check and assign parameters
     tnai.checks(name="eps",para=eps)
     tnai.checks(name="verbose",para=verbose)
@@ -283,8 +283,7 @@ setMethod(
       })
       .object@listOfModulators<-lmod
     }
-    .object <- tna.preprocess(.object,
-                              phenoIDs=phenoIDs,
+    .object <- tna.preprocess(.object,phenoIDs=phenoIDs,
                               duplicateRemoverMethod=duplicateRemoverMethod,
                               verbose=verbose)
     return(.object)
@@ -475,8 +474,8 @@ setMethod(
       stop("\n\n ...conflict with 'igraph0': please use the new 'igraph' package!")
     }
     ##-----check input arguments
-    if(object@status["Preprocess"]!="[x]")stop("NOTE: input data need preprocessing!")
-    if(object@status["DPI.filter"]!="[x]")stop("NOTE: input data need dpi analysis!")
+    if(object@status["Preprocess"]!="[x]")stop("NOTE: input 'object' needs preprocessing!")
+    if(object@status["DPI.filter"]!="[x]")stop("NOTE: input 'object' needs dpi analysis!")
     tnai.checks(name="tnet",para=tnet)
     tnai.checks(name="tni.gtype",para=gtype)
     tnai.checks(name="minRegulonSize",para=minRegulonSize)
@@ -520,7 +519,7 @@ setMethod(
     if(gtype=="mmap" || gtype=="mmapDetailed"){ #get modulatory maps
       
       ##-----check input arguments
-      if(object@status["Conditional"]!="[x]")stop("NOTE: input need conditional analysis!")
+      if(object@status["Conditional"]!="[x]")stop("NOTE: input needs conditional analysis!")
       #get tfs and modulators
       cdt<-tni.get(object,what="cdt")
       if(length(cdt)==0)stop("NOTE: input conditional analysis is empty")
@@ -712,7 +711,7 @@ setMethod(
            miThreshold="md", prob=0.99, pwtransform=FALSE, medianEffect=FALSE, 
            verbose=TRUE, mdStability=FALSE){
     ##-----check input arguments
-    if(object@status["DPI.filter"]!="[x]")stop("NOTE: input data need dpi analysis!")
+    if(object@status["DPI.filter"]!="[x]")stop("NOTE: input 'object' needs dpi analysis!")
     tnai.checks(name="modulators",para=modulators)
     tnai.checks(name="tfs",para=tfs)
     tnai.checks(name="sampling",para=sampling)

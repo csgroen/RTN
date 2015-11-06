@@ -92,8 +92,8 @@ setMethod(
     
     #get IRanges
     if(verbose)cat("-Mapping AVS to ranges of integer values...\n")
-    object@variantSet<-getAvsRanges(variantSet, continued=FALSE)
-    object@randomSet<-getRandomAvsRanges(randomSet, continued=FALSE, verbose=verbose)
+    object@variantSet<-getAvsRanges(variantSet)
+    object@randomSet<-getRandomAvsRanges(randomSet, verbose=verbose)
     
     ##-----update status and return results
     object@status["Preprocess"] <- "[x]"
@@ -187,9 +187,8 @@ setMethod(
     object@results$stats$vse<-vseformat(object@results$vse,pValueCutoff=pValueCutoff,boxcox=boxcox)
     
     #get universe counts (marker and annotation counts)
-    # REVISAR: contagem de anotacao nao relevante p/ VSE, e desncessaria
-    # quando nao entrar com glist... providenciar remocao desse chunk...
-    # revisar correspondente no EVSE!!!
+    # REVISAR: contagem de anotacao nao relevante p/ VSE, talvez seja desncessaria
+    # quando nao entrar com glist... revisar correspondente no EVSE!!!
     universeCounts<-getUniverseCounts1(vSet,annotation,maxgap)
     object@results$counts$vse<-universeCounts
     

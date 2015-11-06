@@ -327,9 +327,7 @@ validateMarkers<-function(markers){
 
 ##-------------------------------------------------------------------------
 ##get IRanges for the AVS
-##..obs: 'continued' refers to a LD block, represented by the extremes
-##  (if TRUE) or by all markers in LD (if FALSE)
-getAvsRanges<-function(vSet, continued=FALSE){
+getAvsRanges<-function(vSet){
   clustersRanges<-sapply(1:length(vSet),function(i){
     chr<-names(vSet[i])
     blocks<-vSet[[i]]
@@ -337,13 +335,8 @@ getAvsRanges<-function(vSet, continued=FALSE){
     index<-NULL
     junk<-lapply(1:length(blocks),function(j){
       pos<-as.integer(blocks[[j]])
-      if(continued){
-        query<-IRanges(start=min(pos), end=max(pos),names=names(blocks)[j])
-        index<<-c(index,j)
-      } else {
-        query<-IRanges(start=pos, end=pos,names=names(blocks[[j]]))
-        index<<-c(index,rep(j,length(query)))
-      }
+      query<-IRanges(start=pos, end=pos,names=names(blocks[[j]]))
+      index<<-c(index,rep(j,length(query)))
       clRanges<<-c(clRanges,query)
     })
     clRanges@metadata$chr<-chr
@@ -356,11 +349,11 @@ getAvsRanges<-function(vSet, continued=FALSE){
   return(clustersRanges)
 }
 ##get IRanges for the random AVS
-getRandomAvsRanges<-function(rSet, continued=FALSE, verbose=TRUE){
+getRandomAvsRanges<-function(rSet, verbose=TRUE){
   if(verbose) pb <- txtProgressBar(style=3)
   clustersRanges<-lapply(1:length(rSet),function(i){
     if(verbose) setTxtProgressBar(pb, i/length(rSet)) 
-    getAvsRanges(rSet[[i]], continued)
+    getAvsRanges(rSet[[i]])
   })
   if(verbose)close(pb)
   clustersRanges
@@ -381,7 +374,7 @@ getAnnotRanges<-function(annotation,maxgap=0, getTree=TRUE, getReduced=FALSE){
     end<-as.integer(annot$END+maxgap)
     subject<-IRanges(start, end, names=annot$ID)
     if(getReduced)subject<-reduce(subject)
-    if(getTree)subject<-IRanges::NCList(subject)
+    if(getTree)subject<-NCList(subject)
     subject@metadata<-list(mappedAnnotations=annot$ID)
     subject
   })
@@ -421,43 +414,6 @@ getMappedMarkers<-function(object){
   RiskAssociatedSNP<-unique(RiskAssociatedSNP)
   return(list(RiskSNP=RiskSNP,RiskAssociatedSNP=RiskAssociatedSNP))
 }
-getEvseMatrix<-function(object,what="probs"){
-  mappedIds<-getMappedMarkers(object)
-  RiskSNP<-mappedIds$RiskSNP
-  evsemtx<-NULL
-  if(what=="probs"){
-    vl=1;cl="Pr(>F)";efun=min
-  } else if(what=="fstat"){
-    vl=0;cl="F";efun=max
-  }
-  junk<-sapply(names(object@results$evse),function(reg){
-    eqtls<-object@results$evse[[reg]]$eqtls
-    rvec<-rep(vl,length(RiskSNP))
-    names(rvec)<-RiskSNP
-    junk<-sapply(RiskSNP,function(rs){
-      idx<-which(eqtls$RiskSNP==rs)
-      if(length(idx)>0){
-        rvec[rs]<<-efun(eqtls[idx,cl])
-      }
-      NULL
-    })
-    evsemtx<<-rbind(evsemtx,rvec)
-    NULL
-  })
-  rownames(evsemtx)<-names(object@results$evse)
-  evsemtx
-}
-getEvseEqtls<-function(object,tfs=NULL){
-  if(is.null(tfs))tfs<-colnames(object@results$stats$evse$mtally)
-  tp<-object@results$evse[tfs]
-  res<-NULL
-  for(tf in tfs){
-    tpp<-tp[[tf]]$eqtls
-    tpp<-data.frame(Regulon=tf,tpp,check.names = FALSE,stringsAsFactors = FALSE)
-    res<-rbind(res,tpp)
-  }
-  res
-}
 
 ###########################################################################
 ## VSE analysis
@@ -469,7 +425,6 @@ vsea<-function(vSet,rSet,annot,verbose=TRUE){
   #compute null
   if(isParallel()){
     cl<-getOption("cluster")
-    #snow::clusterEvalQ(cl, expr=library("IRanges"))
     snow::clusterExport(cl, list("get.avsdist","IRanges","overlapsAny","ff"),
                         envir=environment())
     resrset<-parSapply(cl, 1:length(rSet), function(i) {
@@ -539,8 +494,6 @@ evsea<-function(vSet, rSet, annot, gxdata, snpdata, pValueCutoff=0.01,verbose=TR
   #compute null
   if(isParallel()){
     cl<-getOption("cluster")
-    #snow::clusterEvalQ(cl, library("ff"))
-    #snow::clusterEvalQ(cl, library("IRanges"))
     snow::clusterExport(cl, list("get.eqtldist","eqtlTest","IRanges","overlapsAny","findOverlaps","ff"),
                         envir=environment())
     resrset<-parSapply(cl, 1:length(rSet), function(i) {
@@ -563,8 +516,6 @@ evseaproxy<-function(rSet, annot, gxdata, snpdata, pValueCutoff=0.01,verbose=TRU
   #compute null
   if(isParallel()){
     cl<-getOption("cluster")
-    #snow::clusterEvalQ(cl, library("ff"))
-    #snow::clusterEvalQ(cl, library("IRanges"))
     snow::clusterExport(cl, list("get.eqtldist","eqtlTest","IRanges","overlapsAny","findOverlaps","ff"),
                         envir=environment())
     nulldist<-parSapply(cl, 1:length(rSet), function(i) {
@@ -646,288 +597,6 @@ eqtlTest<-function(geneList,snpList,gxdata,snpdata){
     res<-min(resf,na.rm=TRUE)
   }
   return(res)
-}
-
-#-------------------------------------------------------------------------
-#extract eqtls, return consolidated results
-# eqtlExtract<-function(vSet,annot,gxdata,snpdata){ 
-#   # mapping tally
-#   clusterMapping<-lapply(1:length(vSet),function(i){
-#     chr<-names(vSet[i])
-#     query<-vSet[[i]]
-#     subject<-annot[[chr]]
-#     if(!is.null(subject)){
-#       overlaps<-findOverlaps(query,subject)
-#       geneList<-.mtdata(subject)$mappedAnnotations
-#       res<-lapply(1:length(query@metadata$markers),function(j){
-#         snpList<-.mtdata(query)$mappedMarkers[[j]]
-#         ov<-overlaps@queryHits%in%which(query@metadata$index==j)
-#         ov<-unique(overlaps@subjectHits[ov])
-#         gList<-geneList[ov]
-#         if(length(gList)>0 && length(snpList)>0){
-#           res<-eqtlTestDetailed(geneList=as.character(gList),snpList=as.integer(snpList),gxdata,snpdata)
-#           rownames(res)<-rownames(snpdata)[snpList]
-#         } else {
-#           res<-matrix(NA,nrow=length(snpList),ncol=2)
-#           rownames(res)<-snpList;colnames(res)<-c("F","Pr(>F)")
-#         }
-#         return(res)
-#       })
-#       names(res)<-query@metadata$markers
-#     } else {
-#       res<-NA
-#     }
-#     return(res)
-#   })
-#   #---simplify list
-#   res<-list()
-#   lapply(1:length(clusterMapping),function(i){
-#     tp<-clusterMapping[[i]]
-#     if(is.list(tp)){
-#       lapply(names(tp),function(j){
-#         tpp<-tp[[j]]
-#         tpp<-tpp[!is.na(tpp[,2]),]
-#         if(ncol(tpp)>2 && nrow(tpp)>0){
-#           res[[j]]<<-tpp
-#         }
-#       })
-#     }
-#     NULL
-#   })
-#   clusterMapping<-res
-#   #---get summary
-#   summ<-data.frame(NULL,stringsAsFactors=FALSE)
-#   lapply(names(clusterMapping),function(riskSNP){
-#     tp<-clusterMapping[[riskSNP]]
-#     Fstat<-tp[,1,drop=FALSE]
-#     Pstat<-tp[,2,drop=FALSE]
-#     sapply(rownames(Fstat),function(associatedSNP){
-#       tpp<-data.frame(riskSNP,associatedSNP,Fstat[associatedSNP,],Pstat[associatedSNP,],stringsAsFactors=FALSE)
-#       summ<<-rbind(summ,tpp)
-#       NULL
-#     })
-#   })
-#   if(nrow(summ)>0){
-#     colnames(summ)<-c("RiskSNP","RiskAssociatedSNP","F","Pr(>F)")
-#   }
-#   summ
-# }
-
-#-------------------------------------------------------------------------
-#other table formats to extract eqtls, return consolidated results
-eqtlExtract<-function(vSet,annot,gxdata,snpdata,pValueCutoff){
-  eqtls<-eqtlExtractFull(vSet,annot,gxdata,snpdata)
-  eqtls<-eqtls[eqtls$'Pr(>F)'<pValueCutoff,]
-  rownames(eqtls)<-NULL
-  eqtls
-}
-eqtlExtractFull<-function(vSet,annot,gxdata,snpdata){ 
-  # mapping tally
-  clusterMapping<-lapply(1:length(vSet),function(i){
-    chr<-names(vSet[i])
-    query<-vSet[[i]]
-    subject<-annot[[chr]]
-    if(!is.null(subject)){
-      overlaps<-findOverlaps(query,subject)
-      geneList<-.mtdata(subject)$mappedAnnotations
-      res<-lapply(1:length(query@metadata$markers),function(j){
-        snpList<-.mtdata(query)$mappedMarkers[[j]]
-        ov<-overlaps@queryHits%in%which(query@metadata$index==j)
-        ov<-unique(overlaps@subjectHits[ov])
-        gList<-geneList[ov]
-        if(length(gList)>0 && length(snpList)>0){
-          res<-eqtlTestDetailed(geneList=as.character(gList),snpList=as.integer(snpList),gxdata,snpdata)
-          rownames(res)<-rownames(snpdata)[snpList]
-        } else {
-          res<-matrix(NA,nrow=length(snpList),ncol=2)
-          rownames(res)<-snpList;colnames(res)<-c("F","Pr(>F)")
-        }
-        return(res)
-      })
-      names(res)<-query@metadata$markers
-    } else {
-      res<-NA
-    }
-    return(res)
-  })
-  #---simplify list
-  res<-list()
-  lapply(1:length(clusterMapping),function(i){
-    tp<-clusterMapping[[i]]
-    if(is.list(tp)){
-      lapply(names(tp),function(j){
-        tpp<-tp[[j]]
-        tpp<-tpp[!is.na(tpp[,2]),]
-        if(ncol(tpp)>2 && nrow(tpp)>0){
-          res[[j]]<<-tpp
-        }
-      })
-    }
-    NULL
-  })
-  clusterMapping<-res
-  #---get summary
-  summ<-data.frame(NULL,stringsAsFactors=FALSE)
-  lapply(names(clusterMapping),function(riskSNP){
-    tp<-clusterMapping[[riskSNP]]
-    Fstat<-tp[,1,drop=FALSE]
-    Pstat<-tp[,2,drop=FALSE]
-    geneid<-colnames(tp)[-c(1,2)]
-    sapply(rownames(Fstat),function(associatedSNP){
-      tpp<-data.frame(riskSNP,associatedSNP,geneid,Fstat[associatedSNP,],Pstat[associatedSNP,],stringsAsFactors=FALSE)
-      summ<<-rbind(summ,tpp)
-      NULL
-    })
-  })
-  if(nrow(summ)>0){
-    colnames(summ)<-c("RiskSNP","RiskAssociatedSNP","GeneID","F","Pr(>F)")
-  }
-  summ
-}
-
-
-#-------------------------------------------------------------------------
-##eqtl test for 'eqtlExtract' functions
-##run two-way manova with multiple additive factors (gx as response varible)
-eqtlTestDetailed<-function(geneList,snpList,gxdata,snpdata){
-  gxdata<-t(gxdata[geneList,,drop=FALSE])
-  snpdata<-t(snpdata[snpList,,drop=FALSE])
-  #set names for formulae
-  names(snpList)<-paste(rep("S",ncol(snpdata)),1:ncol(snpdata),sep="")
-  names(geneList)<-paste(rep("G",ncol(gxdata)),1:ncol(gxdata),sep="")
-  colnames(gxdata)<-names(geneList)
-  colnames(snpdata)<-names(snpList)
-  #run lm
-  fm1<-paste(colnames(snpdata),collapse="+")
-  fmla <- formula( paste("gxdata ~",fm1, collapse=" ") )
-  resfit<-lm(fmla, data=as.data.frame(snpdata,stringsAsFactors=FALSE))
-  if(ncol(gxdata)>1){
-    resf<-summary(manova(resfit))
-    resf<-as.data.frame(resf$stats)
-    resf<-resf[1:(nrow(resf)-1),]
-    resf<-resf[,c("approx F","Pr(>F)")]
-  } else {
-    resf<-anova(resfit)
-    resf<-resf[1:(nrow(resf)-1),]
-    resf<-as.data.frame(resf)
-    resf<-resf[,c("F value","Pr(>F)")]
-  }
-  #library('gplots')
-  #plotmeans(G2 ~ S6, data=cbind(gxdata,snpdata), col="red", barcol="blue",connect=FALSE,pch=15, las=1)
-  #get SNP stats
-  colnames(resf)<-c("F","Pr(>F)")
-  #get gene stats
-  resaov<-summary(aov(resfit))
-  resp<-sapply(1:length(resaov),function(i){
-    tp<-resaov[[i]][["Pr(>F)"]]
-    tp[-length(tp)]
-  })
-  resp<-matrix(resp,ncol=length(geneList))
-  colnames(resp)<-geneList
-  #combine results
-  res<-cbind(resf,resp)
-  res<-res[names(snpList),]
-  rownames(res)<-snpList
-  return(res)
-}
-
-#-------------------------------------------------------------------------
-eqtlExtractAnova<-function(vSet,annot,gxdata,snpdata){ 
-  # mapping tally
-  clusterMapping<-lapply(1:length(vSet),function(i){
-    chr<-names(vSet[i])
-    query<-vSet[[i]]
-    subject<-annot[[chr]]
-    if(!is.null(subject)){
-      overlaps<-findOverlaps(query,subject)
-      geneList<-.mtdata(subject)$mappedAnnotations
-      resfit<-NULL
-      junk<-lapply(1:length(query@metadata$markers),function(j){
-        snpList<-.mtdata(query)$mappedMarkers[[j]]
-        ov<-overlaps@queryHits%in%which(query@metadata$index==j)
-        ov<-unique(overlaps@subjectHits[ov])
-        gList<-geneList[ov]
-        if(length(gList)>0 && length(snpList)>0){
-          res<-eqtlTestDetailedAnova(geneList=as.character(gList),snpList=as.integer(snpList),gxdata,snpdata)
-          res$RiskAssociatedSNP<-rownames(snpdata)[res$RiskAssociatedSNP]
-          res<-data.frame(RiskSNP=query@metadata$markers[j],res,stringsAsFactors=FALSE)
-          resfit<<-rbind(resfit,res)
-        }
-        NULL
-      })
-    } else {
-      resfit<-NA
-    }
-    return(resfit)
-  })
-  #---simplify list
-  summ<-NULL
-  lapply(1:length(clusterMapping),function(i){
-    summ<<-rbind(summ,clusterMapping[[i]])
-    NULL
-  })
-  if(nrow(summ)>0){
-    colnames(summ)<-c(".RiskSNP",".RiskAssociatedSNP",".GeneID",".F",".Pr(>F)",".Coef",".R2")
-  }
-  summ
-}
-
-#-------------------------------------------------------------------------
-eqtlTestDetailedAnova<-function(geneList,snpList,gxdata,snpdata){
-  gxdata<-t(gxdata[geneList,,drop=FALSE])
-  snpdata<-t(snpdata[snpList,,drop=FALSE])
-  #set names for formulae
-  names(snpList)<-paste(rep("S",ncol(snpdata)),1:ncol(snpdata),sep="")
-  names(geneList)<-paste(rep("G",ncol(gxdata)),1:ncol(gxdata),sep="")
-  colnames(gxdata)<-names(geneList)
-  colnames(snpdata)<-names(snpList)
-  #run lm
-  resfit<-NULL
-  if(ncol(snpdata)>1 && ncol(gxdata)>1){
-    junk<-sapply(colnames(snpdata),function(S){
-      fmla <- formula( paste("gxdata ~",S, collapse=" ") )
-      raov <- aov(fmla, data=as.data.frame(snpdata,stringsAsFactors=FALSE))
-      cf<-raov$coefficients[S,]
-      sf<-sapply(summary(raov),function(rv){
-        tp<-as.data.frame(rv)
-        tp<-tp[1:(nrow(tp)-1),4:5]
-        as.numeric(tp)
-      })
-      rownames(sf)<-c("F","Prob")
-      colnames(sf)<-names(cf)
-      sf<-t(sf)
-      raov<-data.frame(RiskAssociatedSNP=S,GeneID=rownames(sf),sf,Coef=cf,stringsAsFactors=FALSE)
-      resfit<<-rbind(resfit,raov)
-    })
-  } else {
-    junk<-sapply(colnames(snpdata),function(S){
-      fmla <- formula( paste("gxdata ~",S, collapse=" ") )
-      raov <- aov(fmla, data=as.data.frame(snpdata,stringsAsFactors=FALSE))
-      cf<-raov$coefficients[2]
-      sf<-as.data.frame(summary(raov)[[1]])
-      sf<-sf[1,4:5]
-      raov<-data.frame(RiskAssociatedSNP=S,GeneID=colnames(gxdata),F=sf[,1],Prob=sf[,2],Coef=cf,stringsAsFactors=FALSE)
-      resfit<<-rbind(resfit,raov)
-    })
-  }
-  rownames(resfit)<-NULL
-  resfit$RiskAssociatedSNP<-snpList[resfit$RiskAssociatedSNP]
-  resfit$GeneID<-geneList[resfit$GeneID]
-  #--
-  #run cor
-  R2<-cor(gxdata,snpdata)
-  colnames(R2)<-snpList
-  rownames(R2)<-geneList
-  summ<-NULL
-  sapply(colnames(R2),function(i){
-    tp<-data.frame(RiskAssociatedSNP=i,GeneID=rownames(R2),R2=R2[,i],stringsAsFactors=FALSE)
-    summ<<-rbind(summ,tp)
-    NULL
-  })
-  rownames(summ)<-NULL
-  #---
-  resfit<-cbind(resfit,R2=summ$R2)
-  return(resfit)
 }
 
 #-------------------------------------------------------------------------
@@ -1122,7 +791,7 @@ isParallel<-function(){
 }
 
 ##-------------------------------------------------------------------------
-## get ld data from RTNdata
+## get ld data from the RTNdata package
 getldata<-function(chrom="chr22",package="RTNdata.LDHapMap.rel27"){
   chrs<-c(paste("chr",1:22,sep=""),"chrX")
   if(chrom==chrs[1]){data('ldatachr1', package=package, envir=environment());ldata<-get("ldatachr1")
@@ -1178,6 +847,272 @@ getLdPop<-function(package="RTNdata.LDHapMap.rel27",scaledown=TRUE, verbose=TRUE
   popsnps<-popsnps[!base::duplicated(popsnps$rsid),]
   rownames(popsnps)<-NULL
   popsnps
+}
+
+
+###########################################################################
+## Methods (under development) to extract consolidated results
+###########################################################################
+
+#-------------------------------------------------------------------------
+# extract eqtls, return consolidated results
+eqtlExtract<-function(vSet,annot,gxdata,snpdata,pValueCutoff){
+  eqtls<-eqtlExtractFull(vSet,annot,gxdata,snpdata)
+  eqtls<-eqtls[eqtls$'Pr(>F)'<pValueCutoff,]
+  rownames(eqtls)<-NULL
+  eqtls
+}
+eqtlExtractFull<-function(vSet,annot,gxdata,snpdata){ 
+  # mapping tally
+  clusterMapping<-lapply(1:length(vSet),function(i){
+    chr<-names(vSet[i])
+    query<-vSet[[i]]
+    subject<-annot[[chr]]
+    if(!is.null(subject)){
+      overlaps<-findOverlaps(query,subject)
+      geneList<-.mtdata(subject)$mappedAnnotations
+      res<-lapply(1:length(query@metadata$markers),function(j){
+        snpList<-.mtdata(query)$mappedMarkers[[j]]
+        ov<-overlaps@queryHits%in%which(query@metadata$index==j)
+        ov<-unique(overlaps@subjectHits[ov])
+        gList<-geneList[ov]
+        if(length(gList)>0 && length(snpList)>0){
+          res<-eqtlTestDetailed(geneList=as.character(gList),snpList=as.integer(snpList),gxdata,snpdata)
+          rownames(res)<-rownames(snpdata)[snpList]
+        } else {
+          res<-matrix(NA,nrow=length(snpList),ncol=2)
+          rownames(res)<-snpList;colnames(res)<-c("F","Pr(>F)")
+        }
+        return(res)
+      })
+      names(res)<-query@metadata$markers
+    } else {
+      res<-NA
+    }
+    return(res)
+  })
+  #---simplify list
+  res<-list()
+  lapply(1:length(clusterMapping),function(i){
+    tp<-clusterMapping[[i]]
+    if(is.list(tp)){
+      lapply(names(tp),function(j){
+        tpp<-tp[[j]]
+        tpp<-tpp[!is.na(tpp[,2]),]
+        if(ncol(tpp)>2 && nrow(tpp)>0){
+          res[[j]]<<-tpp
+        }
+      })
+    }
+    NULL
+  })
+  clusterMapping<-res
+  #---get summary
+  summ<-data.frame(NULL,stringsAsFactors=FALSE)
+  lapply(names(clusterMapping),function(riskSNP){
+    tp<-clusterMapping[[riskSNP]]
+    Fstat<-tp[,1,drop=FALSE]
+    Pstat<-tp[,2,drop=FALSE]
+    geneid<-colnames(tp)[-c(1,2)]
+    sapply(rownames(Fstat),function(associatedSNP){
+      tpp<-data.frame(riskSNP,associatedSNP,geneid,Fstat[associatedSNP,],Pstat[associatedSNP,],stringsAsFactors=FALSE)
+      summ<<-rbind(summ,tpp)
+      NULL
+    })
+  })
+  if(nrow(summ)>0){
+    colnames(summ)<-c("RiskSNP","RiskAssociatedSNP","GeneID","F","Pr(>F)")
+  }
+  summ
+}
+
+#-------------------------------------------------------------------------
+##eqtl test for the 'eqtlExtract' function
+##run two-way manova with multiple additive factors (gx as response varible)
+eqtlTestDetailed<-function(geneList,snpList,gxdata,snpdata){
+  gxdata<-t(gxdata[geneList,,drop=FALSE])
+  snpdata<-t(snpdata[snpList,,drop=FALSE])
+  #set names for formulae
+  names(snpList)<-paste(rep("S",ncol(snpdata)),1:ncol(snpdata),sep="")
+  names(geneList)<-paste(rep("G",ncol(gxdata)),1:ncol(gxdata),sep="")
+  colnames(gxdata)<-names(geneList)
+  colnames(snpdata)<-names(snpList)
+  #run lm
+  fm1<-paste(colnames(snpdata),collapse="+")
+  fmla <- formula( paste("gxdata ~",fm1, collapse=" ") )
+  resfit<-lm(fmla, data=as.data.frame(snpdata,stringsAsFactors=FALSE))
+  if(ncol(gxdata)>1){
+    resf<-summary(manova(resfit))
+    resf<-as.data.frame(resf$stats)
+    resf<-resf[1:(nrow(resf)-1),]
+    resf<-resf[,c("approx F","Pr(>F)")]
+  } else {
+    resf<-anova(resfit)
+    resf<-resf[1:(nrow(resf)-1),]
+    resf<-as.data.frame(resf)
+    resf<-resf[,c("F value","Pr(>F)")]
+  }
+  #library('gplots')
+  #plotmeans(G2 ~ S6, data=cbind(gxdata,snpdata), col="red", barcol="blue",connect=FALSE,pch=15, las=1)
+  #get SNP stats
+  colnames(resf)<-c("F","Pr(>F)")
+  #get gene stats
+  resaov<-summary(aov(resfit))
+  resp<-sapply(1:length(resaov),function(i){
+    tp<-resaov[[i]][["Pr(>F)"]]
+    tp[-length(tp)]
+  })
+  resp<-matrix(resp,ncol=length(geneList))
+  colnames(resp)<-geneList
+  #combine results
+  res<-cbind(resf,resp)
+  res<-res[names(snpList),]
+  rownames(res)<-snpList
+  return(res)
+}
+
+#-------------------------------------------------------------------------
+eqtlExtractAnova<-function(vSet,annot,gxdata,snpdata){ 
+  # mapping tally
+  clusterMapping<-lapply(1:length(vSet),function(i){
+    chr<-names(vSet[i])
+    query<-vSet[[i]]
+    subject<-annot[[chr]]
+    if(!is.null(subject)){
+      overlaps<-findOverlaps(query,subject)
+      geneList<-.mtdata(subject)$mappedAnnotations
+      resfit<-NULL
+      junk<-lapply(1:length(query@metadata$markers),function(j){
+        snpList<-.mtdata(query)$mappedMarkers[[j]]
+        ov<-overlaps@queryHits%in%which(query@metadata$index==j)
+        ov<-unique(overlaps@subjectHits[ov])
+        gList<-geneList[ov]
+        if(length(gList)>0 && length(snpList)>0){
+          res<-eqtlTestDetailedAnova(geneList=as.character(gList),snpList=as.integer(snpList),gxdata,snpdata)
+          res$RiskAssociatedSNP<-rownames(snpdata)[res$RiskAssociatedSNP]
+          res<-data.frame(RiskSNP=query@metadata$markers[j],res,stringsAsFactors=FALSE)
+          resfit<<-rbind(resfit,res)
+        }
+        NULL
+      })
+    } else {
+      resfit<-NA
+    }
+    return(resfit)
+  })
+  #---simplify list
+  summ<-NULL
+  lapply(1:length(clusterMapping),function(i){
+    summ<<-rbind(summ,clusterMapping[[i]])
+    NULL
+  })
+  if(nrow(summ)>0){
+    colnames(summ)<-c(".RiskSNP",".RiskAssociatedSNP",".GeneID",".F",".Pr(>F)",".Coef",".R2")
+  }
+  summ
+}
+
+#-------------------------------------------------------------------------
+eqtlTestDetailedAnova<-function(geneList,snpList,gxdata,snpdata){
+  gxdata<-t(gxdata[geneList,,drop=FALSE])
+  snpdata<-t(snpdata[snpList,,drop=FALSE])
+  #set names for formulae
+  names(snpList)<-paste(rep("S",ncol(snpdata)),1:ncol(snpdata),sep="")
+  names(geneList)<-paste(rep("G",ncol(gxdata)),1:ncol(gxdata),sep="")
+  colnames(gxdata)<-names(geneList)
+  colnames(snpdata)<-names(snpList)
+  #run lm
+  resfit<-NULL
+  if(ncol(snpdata)>1 && ncol(gxdata)>1){
+    junk<-sapply(colnames(snpdata),function(S){
+      fmla <- formula( paste("gxdata ~",S, collapse=" ") )
+      raov <- aov(fmla, data=as.data.frame(snpdata,stringsAsFactors=FALSE))
+      cf<-raov$coefficients[S,]
+      sf<-sapply(summary(raov),function(rv){
+        tp<-as.data.frame(rv)
+        tp<-tp[1:(nrow(tp)-1),4:5]
+        as.numeric(tp)
+      })
+      rownames(sf)<-c("F","Prob")
+      colnames(sf)<-names(cf)
+      sf<-t(sf)
+      raov<-data.frame(RiskAssociatedSNP=S,GeneID=rownames(sf),sf,Coef=cf,stringsAsFactors=FALSE)
+      resfit<<-rbind(resfit,raov)
+    })
+  } else {
+    junk<-sapply(colnames(snpdata),function(S){
+      fmla <- formula( paste("gxdata ~",S, collapse=" ") )
+      raov <- aov(fmla, data=as.data.frame(snpdata,stringsAsFactors=FALSE))
+      cf<-raov$coefficients[2]
+      sf<-as.data.frame(summary(raov)[[1]])
+      sf<-sf[1,4:5]
+      raov<-data.frame(RiskAssociatedSNP=S,GeneID=colnames(gxdata),F=sf[,1],Prob=sf[,2],Coef=cf,stringsAsFactors=FALSE)
+      resfit<<-rbind(resfit,raov)
+    })
+  }
+  rownames(resfit)<-NULL
+  resfit$RiskAssociatedSNP<-snpList[resfit$RiskAssociatedSNP]
+  resfit$GeneID<-geneList[resfit$GeneID]
+  #--
+  #run cor
+  R2<-cor(gxdata,snpdata)
+  colnames(R2)<-snpList
+  rownames(R2)<-geneList
+  summ<-NULL
+  sapply(colnames(R2),function(i){
+    tp<-data.frame(RiskAssociatedSNP=i,GeneID=rownames(R2),R2=R2[,i],stringsAsFactors=FALSE)
+    summ<<-rbind(summ,tp)
+    NULL
+  })
+  rownames(summ)<-NULL
+  #---
+  resfit<-cbind(resfit,R2=summ$R2)
+  return(resfit)
+}
+
+##-------------------------------------------------------------------------
+#return consolidated results in a matrix
+#ps."object" should be an "avs" already evaluated by the "avs.evse" method
+getEvseMatrix<-function(object,what="probs"){
+  mappedIds<-getMappedMarkers(object)
+  RiskSNP<-mappedIds$RiskSNP
+  evsemtx<-NULL
+  if(what=="probs"){
+    vl=1;cl="Pr(>F)";efun=min
+  } else if(what=="fstat"){
+    vl=0;cl="F";efun=max
+  }
+  junk<-sapply(names(object@results$evse),function(reg){
+    eqtls<-object@results$evse[[reg]]$eqtls
+    rvec<-rep(vl,length(RiskSNP))
+    names(rvec)<-RiskSNP
+    junk<-sapply(RiskSNP,function(rs){
+      idx<-which(eqtls$RiskSNP==rs)
+      if(length(idx)>0){
+        rvec[rs]<<-efun(eqtls[idx,cl])
+      }
+      NULL
+    })
+    evsemtx<<-rbind(evsemtx,rvec)
+    NULL
+  })
+  rownames(evsemtx)<-names(object@results$evse)
+  evsemtx
+}
+
+##-------------------------------------------------------------------------
+#another table to extract eqtls, return consolidated results
+#ps."object" should be an "avs" already evaluated by the "avs.evse" method
+getEvseEqtls<-function(object,tfs=NULL){
+  if(is.null(tfs))tfs<-colnames(object@results$stats$evse$mtally)
+  tp<-object@results$evse[tfs]
+  res<-NULL
+  for(tf in tfs){
+    tpp<-tp[[tf]]$eqtls
+    tpp<-data.frame(Regulon=tf,tpp,check.names = FALSE,stringsAsFactors = FALSE)
+    res<-rbind(res,tpp)
+  }
+  res
 }
 
 

@@ -602,13 +602,13 @@ eqtlTest<-function(geneList,snpList,gxdata,snpdata){
 #-------------------------------------------------------------------------
 getUniverseCounts1<-function(vSet,annotation,maxgap){
   #count markers in hapmap
-  clusterCounts<-unlist(sapply(1:length(vSet),function(i){
+  clusterCounts<-unlist(lapply(1:length(vSet),function(i){
     unlist(lapply(vSet[[i]]@metadata$blocks,length))
   }))
   #count tested genes, overlap
   annot<-getAnnotRanges(annotation,maxgap=maxgap,getTree=FALSE, getReduced=FALSE)
   # mapping tally
-  geneCounts<-sapply(1:length(vSet),function(i){
+  geneCounts<-lapply(1:length(vSet),function(i){
     chr<-names(vSet[i])
     query<-vSet[[i]]
     subject<-annot[[chr]]

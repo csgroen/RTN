@@ -162,15 +162,13 @@ setMethod(
       if(is.data.frame(query) && nrow(query)>0){
         if(is.null(ntop)){
           query<-query[query[,"Adjusted.Pvalue"] <= object@para$mra$pValueCutoff,,drop=FALSE]
+          if(order && nrow(query)>1) query<-query[order(query[,"Pvalue"]),,drop=FALSE]
         } else {
           if(ntop>nrow(query) || ntop<0)ntop=nrow(query)
           if(nrow(query)>1){
             idx<-sort.list(query[,"Pvalue"]) 
             query<-query[idx[1:ntop],,drop=FALSE]
           }
-        }
-        if(order){
-          if(nrow(query)>1) query<-query[order(query[,"Pvalue"]),,drop=FALSE]
         }
         if(reportNames){
           idx<-match(query[,1],object@transcriptionFactors)
@@ -183,15 +181,13 @@ setMethod(
       if(is.data.frame(query) && nrow(query)>0 ){
         if(is.null(ntop)){
           query<-query[query[,"Adjusted.Pvalue"] <= object@para$gsea1$pValueCutoff,,drop=FALSE]
+          if(order && nrow(query)>1)query<-query[order(query[,"Pvalue"],decreasing=TRUE),,drop=FALSE]
         } else {
           if(ntop>nrow(query)|| ntop<0)ntop=nrow(query)
           if(nrow(query)>1){
             idx<-sort.list(query[,"Pvalue"]) 
             query<-query[idx[1:ntop],,drop=FALSE]
           }
-        }
-        if(order){
-          if(nrow(query)>1) query<-query[order(query[,"Observed.Score"],decreasing=TRUE),,drop=FALSE]
         }
         if(reportNames){
           idx<-match(query[,1],object@transcriptionFactors)
@@ -204,15 +200,13 @@ setMethod(
         if(is.data.frame(query) && nrow(query)>0 ){
           if(is.null(ntop)){
             query<-query[query[,"Adjusted.Pvalue"] <= object@para$gsea2$pValueCutoff,,drop=FALSE]
+            if(order && nrow(query)>1)query<-query[order(query[,"Pvalue"]),,drop=FALSE]
           } else {
             if(ntop>nrow(query)|| ntop<0)ntop=nrow(query)
             if(nrow(query)>1){
               idx<-sort.list(query[,"Pvalue"]) 
               query<-query[idx[1:ntop],,drop=FALSE]
             }
-          }
-          if(order){
-            if(nrow(query)>1) query<-query[order(query[,"Observed.Score"]),,drop=FALSE]
           }
           if(reportNames){
             idx<-match(query[,1],object@transcriptionFactors)
@@ -224,8 +218,8 @@ setMethod(
       query<-list()
       if(is.null(ntop)){
         tp<-rownames(getqs(object@results$GSEA2.results$differential))
-        tp<-intersect(tp,rownames(getqs(object@results$GSEA2.results$positive)))
-        tp<-intersect(tp,rownames(getqs(object@results$GSEA2.results$negative)))
+        #tp<-intersect(tp,rownames(getqs(object@results$GSEA2.results$positive)))
+        #tp<-intersect(tp,rownames(getqs(object@results$GSEA2.results$negative)))
         dft<-getqs(object@results$GSEA2.results$differential,order,reportNames)
         dft<-dft[rownames(dft)%in%tp,]
         query$differential<-dft
@@ -243,15 +237,13 @@ setMethod(
       if(is.data.frame(query) && nrow(query)>0){
         if(is.null(ntop)){
           query<-query[query[,"Adjusted.Pvalue"] <= object@para$overlap$pValueCutoff,,drop=FALSE]
+          if(order && nrow(query)>1) query<-query[order(query[,"Pvalue"],decreasing=FALSE),,drop=FALSE]
         } else {
           if(ntop>nrow(query)|| ntop<0)ntop=nrow(query)
           if(nrow(query)>1){
             idx<-sort.list(query[,"Pvalue"]) 
             query<-query[idx[1:ntop],,drop=FALSE]
           }
-        }
-        if(order){
-          if(nrow(query)>1) query<-query[order(query[,"Pvalue"],decreasing=FALSE),,drop=FALSE]
         }
         if(reportNames){
           idx<-match(query[,1],object@transcriptionFactors)
@@ -268,15 +260,13 @@ setMethod(
         query<-query[idx,]
         if(is.null(ntop)){
           query<-query[query[,"Adjusted.Pvalue"] <= object@para$synergy$pValueCutoff,,drop=FALSE]
+          if(order && nrow(query)>1) query<-query[order(query[,"EffectSize"],decreasing=TRUE),,drop=FALSE]
         } else {
           if(ntop>nrow(query) || ntop<0)ntop=nrow(query)
           if(nrow(query)>1){
             idx<-sort.list(query[,"Pvalue"]) 
             query<-query[idx[1:ntop],,drop=FALSE]
           }
-        }
-        if(order){
-          if(nrow(query)>1) query<-query[order(query[,"EffectSize"],decreasing=TRUE),,drop=FALSE]
         }
         if(reportNames){
           idx<-match(query[,1],object@transcriptionFactors)
@@ -293,15 +283,13 @@ setMethod(
         query<-query[idx,]
         if(is.null(ntop)){
           query<-query[query[,"Adjusted.Pvalue"] <= object@para$shadow$pValueCutoff,,drop=FALSE]
+          if(order && nrow(query)>1) query<-query[order(query[,"Pvalue"]),,drop=FALSE]
         } else {
           if(ntop>nrow(query) || ntop<0)ntop=nrow(query)
           if(nrow(query)>1){
             idx<-sort.list(query[,"Pvalue"]) 
             query<-query[idx[1:ntop],,drop=FALSE]
           }
-        }
-        if(order){
-          if(nrow(query)>1) query<-query[order(query[,"EffectSize"]),,drop=FALSE]
         }
         if(reportNames){
           idx<-match(query[,1],object@transcriptionFactors)
@@ -1298,10 +1286,18 @@ data.integration<-function(object, verbose){
           ifelse(imax>abs(imin),imax,imin)
         }
         tnet<-object@transcriptionalNetwork
-        tnet<-aggregate(tnet,by=list(rownames(tnet)),abmax)
-        rownames(tnet)<-tnet[,1]
-        tnet<-as.matrix(tnet[,-1,drop=FALSE])
+        idx<-rownames(tnet)[anyDuplicated(rownames(tnet))]
+        idx<-which(rownames(tnet)%in%idx)
+        tnetdp<-tnet[idx,,drop=FALSE];tnet<-tnet[-idx,,drop=FALSE]
+        #---
+        tnetdp<-aggregate(tnetdp,by=list(rownames(tnetdp)),abmax, simplify=TRUE)
+        rownames(tnetdp)<-tnetdp[,1]
+        tnetdp<-as.matrix(tnetdp[,-1,drop=FALSE])
+        #---
+        tnetdp<-tnetdp[,object@transcriptionFactors,drop=FALSE]
         tnet<-tnet[,object@transcriptionFactors,drop=FALSE]
+        tnet<-rbind(tnet,tnetdp)
+        #---
         object@transcriptionalNetwork<-tnet    
       }
       object@summary$tar[,"duplicate.removed"]<-nrow(object@transcriptionalNetwork)
@@ -1314,10 +1310,18 @@ data.integration<-function(object, verbose){
           ifelse(imax>abs(imin),imax,imin)
         }
         tnet<-object@referenceNetwork
-        tnet<-aggregate(tnet,by=list(rownames(tnet)),abmax)
-        rownames(tnet)<-tnet[,1]
-        tnet<-as.matrix(tnet[,-1,drop=FALSE])
+        idx<-rownames(tnet)[anyDuplicated(rownames(tnet))]
+        idx<-which(rownames(tnet)%in%idx)
+        tnetdp<-tnet[idx,,drop=FALSE];tnet<-tnet[-idx,,drop=FALSE]
+        #---
+        tnetdp<-aggregate(tnetdp,by=list(rownames(tnetdp)),abmax, simplify=TRUE)
+        rownames(tnetdp)<-tnetdp[,1]
+        tnetdp<-as.matrix(tnetdp[,-1,drop=FALSE])
+        #---        
+        tnetdp<-tnetdp[,object@transcriptionFactors,drop=FALSE]
         tnet<-tnet[,object@transcriptionFactors,drop=FALSE]
+        tnet<-rbind(tnet,tnetdp)
+        #---
         object@referenceNetwork<-tnet    
       }
       ##-----update modulator list if available
@@ -1334,7 +1338,7 @@ data.integration<-function(object, verbose){
           if(length(reg)>0){
             idx<-match(names(reg),object@annotation[,coltf])
             mnames<-object@annotation[idx,1]
-            mnames<-aggregate(reg,by=list(mnames),max)
+            mnames<-aggregate(reg,by=list(mnames),max, simplify=TRUE)
             reg<-mnames[,2]
             names(reg)<-mnames[,1]
           }
@@ -1382,7 +1386,7 @@ data.integration<-function(object, verbose){
     idx<-rownames(object@transcriptionalNetwork) %in% phenoIDs
     agreement<-sum(idx)/length(idx)*100
     if(verbose)cat(paste(round(agreement,1),"% ! \n",sep=""))
-    if(agreement<50){
+    if(agreement<30){
       idiff<-round(100-agreement,1)
       tp<-paste("NOTE: ",idiff,"% of 'transcriptionalNetwork' targets not represented in the 'phenotype'!",sep="")
       stop(tp,call.=FALSE)

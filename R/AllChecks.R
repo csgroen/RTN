@@ -77,6 +77,9 @@ tnai.checks <- function(name, para) {
     colnames(para)<-c("chrom","start","end","rsid")
     para$chrom<-as.character(para$chrom)
     para$rsid<-as.character(para$rsid)
+    #---
+    b1<-length(grep( "^rs[0-9]+$", para$rsid))!=length(para$rsid)
+    if ( b1 )stop("all items should be provided as valid makers, prefixed with 'rs' (e.g. rs10490113)!")
     return(para)
   }
   else if(name=="tni.gtype"){

@@ -547,9 +547,9 @@ get.eqtldist<-function(vSet,annot,gxdata,snpdata,pValueCutoff=0.01){
       geneList<-.mtdata(subject)$mappedAnnotations
       res<-sapply(1:length(query@metadata$markers),function(j){
         snpList<-.mtdata(query)$mappedMarkers[[j]]
-        ov<-overlaps@queryHits%in%which(query@metadata$index==j)
+        ov<-queryHits(overlaps)%in%which(query@metadata$index==j)
         if(any(ov) && length(snpList)>0){
-          ov<-unique(overlaps@subjectHits[ov])
+          ov<-unique(subjectHits(overlaps)[ov])
           gList<-geneList[ov]
           if(length(gList)>0){
             res<-eqtlTest(geneList=as.character(gList),snpList=as.integer(snpList),gxdata,snpdata)
@@ -873,8 +873,8 @@ eqtlExtractFull<-function(vSet,annot,gxdata,snpdata){
       geneList<-.mtdata(subject)$mappedAnnotations
       res<-lapply(1:length(query@metadata$markers),function(j){
         snpList<-.mtdata(query)$mappedMarkers[[j]]
-        ov<-overlaps@queryHits%in%which(query@metadata$index==j)
-        ov<-unique(overlaps@subjectHits[ov])
+        ov<-queryHits(overlaps)%in%which(query@metadata$index==j)
+        ov<-unique(subjectHits(overlaps)[ov])
         gList<-geneList[ov]
         if(length(gList)>0 && length(snpList)>0){
           res<-eqtlTestDetailed(geneList=as.character(gList),snpList=as.integer(snpList),gxdata,snpdata)
@@ -984,8 +984,8 @@ eqtlExtractAnova<-function(vSet,annot,gxdata,snpdata){
       resfit<-NULL
       junk<-lapply(1:length(query@metadata$markers),function(j){
         snpList<-.mtdata(query)$mappedMarkers[[j]]
-        ov<-overlaps@queryHits%in%which(query@metadata$index==j)
-        ov<-unique(overlaps@subjectHits[ov])
+        ov<-queryHits(overlaps)%in%which(query@metadata$index==j)
+        ov<-unique(subjectHits(overlaps)[ov])
         gList<-geneList[ov]
         if(length(gList)>0 && length(snpList)>0){
           res<-eqtlTestDetailedAnova(geneList=as.character(gList),snpList=as.integer(snpList),gxdata,snpdata)

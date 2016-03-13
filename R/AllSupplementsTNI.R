@@ -972,7 +972,7 @@ drcircle<-function (nv, ybend=1, xbend=1, ang=1, rotate=0, plot=FALSE) {
 #drcircle(nv=10,ang=1,plot=TRUE)
 
 #---------------------------------------------------------------
-#test overlap of among regulons in a tnet via phyper function
+#test overlap among regulons in a tnet via phyper function
 tni.phyper<-function(tnet){
   tnet[tnet!=0]<-1
   tnet<-tnet[rowSums(tnet)>0,]

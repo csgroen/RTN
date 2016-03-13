@@ -5,7 +5,7 @@ citEntry(entry = "Article",
   journal = "Nature Genetics",
   year = "2016",
   volume = {48},
-  pages = {12-21},
+  pages = {12--21},
   doi = "10.1038/ng.3458",
   textVersion = "Castro MAA, de Santiago I, Campbell TM, ..., Meyer KB. Regulators of genetic risk of breast cancer identified by integrative network analysis. Nature Genetics, 48:12-21, 2016."
 )

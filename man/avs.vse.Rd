@@ -1,0 +1,66 @@
+\name{avs.vse}
+\alias{avs.vse}
+
+\title{Variant set enrichment (VSE) analysis.}
+
+\description{
+The VSE method tests the enrichment of an AVS for a particular trait in a genomic annotation.
+}
+
+\usage{
+avs.vse(object, annotation, maxgap=0, pValueCutoff=0.05, boxcox=TRUE, 
+lab="annotation", glist=NULL, minSize=100, verbose=TRUE)
+}
+
+\arguments{
+\item{object}{
+an object. When this function is implemented as the S4 method of class 
+\code{\link[RTN:AVS-class]{AVS-class}}, this argument is an object of class 'AVS'.
+}
+\item{annotation}{
+a data frame with genomic annotations listing chromosome coordinates to which a particular property or function has been attributed. It should include the following columns: <CHROM>, <START>, <END> and <ID>. The <ID> column can be any genomic identifier, while values in <CHROM> should be listed in ['chr1', 'chr2', 'chr3' ..., 'chrX']. Both <START> and <END> columns correspond to chromosome positions mapped to the human genome assembly used to build the AVS object (see \code{\link[RTN:avs.preprocess]{avs.preprocess}}).
+}
+\item{maxgap}{
+a single integer value specifying the max distant (bp) between the AVS and the annotation used to compute the enrichment analysis.
+}
+\item{pValueCutoff}{
+a single numeric value specifying the cutoff for p-values considered significant.
+}
+\item{boxcox}{
+a single logical value specifying to use Box-Cox procedure to find a transformation of the null that approaches normality (when boxcox=TRUE) or not (when boxcox=FALSE). See \code{\link[car:powerTransform]{powerTransform}} and \code{\link[car:bcPower]{bcPower}}.
+}
+\item{lab}{
+a single character value specifying a name for the annotation dataset (this option is overrided if 'glist' is used).
+}
+\item{glist}{
+an optional list with character vectors mapped to the 'annotation' data via <ID> column. This option can be used to run a batch mode for gene sets and regulons.
+}
+\item{minSize}{
+if 'glist' is provided, this argument is a single integer or numeric value specifying the minimum number of elements for each gene set in the 'glist'. Gene sets with fewer than this number are removed from the analysis.
+}
+\item{verbose}{
+a single logical value specifying to display detailed messages (when verbose=TRUE) 
+or not (when verbose=FALSE).
+}
+}
+
+\author{Mauro Castro}
+
+\seealso{
+  \code{\link[RTN:AVS-class]{AVS-class}}
+}
+
+\examples{
+
+\dontrun{
+#This example requires the RTNdata package! (currently available under request)
+library(RTNdata.LDHapMap.rel27)
+data(bcarisk)
+avs <- new("AVS", markers=bcarisk)
+avs <- avs.preprocess(avs, nrand=100)
+avs.get(avs)
+}
+}
+
+\keyword{methods}
+

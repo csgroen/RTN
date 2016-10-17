@@ -1,0 +1,23 @@
+
+citEntry(entry = "Article",
+  author = "Mauro Castro and Ines de Santiago and Thomas Campbell and Courtney Vaughn and Theresa Hickey and Edith Ross and Wayne Tilley and Florian Markowetz and Bruce Ponder and Kerstin Meyer",
+  title = "Regulators of genetic risk of breast cancer identified by integrative network analysis.",
+  journal = "Nature Genetics",
+  year = "2016",
+  volume = {48},
+  pages = {12--21},
+  doi = "10.1038/ng.3458",
+  textVersion = "Castro MAA, de Santiago I, Campbell TM, ..., Meyer KB. Regulators of genetic risk of breast cancer identified by integrative network analysis. Nature Genetics, 48:12-21, 2016."
+)
+
+citEntry(entry = "Article",
+  author = "Michael Fletcher and Mauro Castro and Xin Wang and Ines de Santiago and Martin O'Reilly and Suet-Feung Chin and Oscar Rueda and Carlos Caldas and Bruce Ponder and Florian Markowetz and Kerstin Meyer",
+  title = "Master regulators of FGFR2 signalling and breast cancer risk.",
+  journal = "Nature Communications",
+  year = "2013",
+  volume = {4},
+  pages = {2464},
+  doi = "10.1038/ncomms3464",
+  textVersion = "Fletcher MNC, Castro MAA, Wang X, ..., Meyer KB. Master regulators of FGFR2 signalling and breast cancer risk. Nature Communications, 4:2464, 2013."
+)
+

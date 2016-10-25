@@ -3,6 +3,172 @@
 ################################################################################
 
 ##------------------------------------------------------------------------------
+##GSEA2 for TNI
+setMethod(
+  "tni.gsea2",
+  "TNI",function(object, minRegulonSize=15, doSizeFilter=FALSE, exponent=1, tnet="dpi",
+                 tfs=NULL, samples=NULL, features=NULL, refsamp=NULL, log=FALSE,
+                 verbose=TRUE) {
+    if(object@status["Preprocess"]!="[x]")stop("NOTE: TNI object is not compleate: requires preprocessing!")
+    if(object@status["Permutation"]!="[x]")stop("NOTE: TNI object is not compleate: requires permutation/bootstrap and DPI filter!")  
+    if(object@status["DPI.filter"]!="[x]")stop("NOTE: TNI object is not compleate: requires DPI filter!")
+    ##-----check and assign parameters
+    tnai.checks(name="minRegulonSize",para=minRegulonSize)
+    #doSizeFilter
+    tnai.checks(name="exponent",para=exponent)
+    tnai.checks(name="gsea.tnet",para=tnet)
+    tnai.checks(name="tfs",para=tfs)
+    #samples
+    #features
+    #refsamp
+    #log
+    tnai.checks(name="verbose",para=verbose) 
+    object@para$gsea2<-list(minRegulonSize=minRegulonSize, exponent=exponent,tnet=tnet)
+    ##------ compute reference gx vec
+    if(is.null(refsamp)){
+      gxref <- apply(object@gexp,1,mean)
+    } else {
+      idx<-colnames(object@gexp)%in%refsamp
+      if(!all(sum(idx)%in%length(refsamp))){
+        stop("NOTE: 'refsamp' should list only valid sample names!")
+      }
+      gxref <- apply(object@gexp[,refsamp],1,mean)
+    }
+    ##----- set samples
+    if(!is.null(samples)){
+      idx<-colnames(object@gexp)%in%samples
+      samples<-colnames(object@gexp)[idx]
+    } else {
+      samples<-colnames(object@gexp)
+    }
+    ##----- set features
+    if(!is.null(features)){
+      col1<-sapply(1:ncol(object@annotation),function(i){
+        sum(features%in%object@annotation[,i],na.rm=TRUE)
+      })
+      col1<-which(col1==max(col1))[1]
+      idx<-object@annotation[[col1]]%in%features
+      object@results$tn.ref[!idx,]<-0
+      object@results$tn.dpi[!idx,]<-0
+    }
+    
+    ##-----get tnet and regulons
+    if(tnet=="cdt"){
+      if(!is.null(object@results$conditional) && length(object@results$conditional)>0){
+        cdt<-tni.get(object,what="cdt")
+        lmod<-lapply(cdt,function(reg){
+          if(nrow(reg)>0){
+            tp<-reg$Mode
+            names(tp)<-rownames(reg)
+          } else {
+            tp=character()
+          }
+          tp
+        })
+        listOfRegulonsAndMode<-lmod
+      }
+    } else if(tnet=="ref"){
+      listOfRegulonsAndMode<-tni.get(object,what="refregulons.and.mode")
+    } else {
+      listOfRegulonsAndMode<-tni.get(object,what="regulons.and.mode")
+    }
+    
+    ##-----set regs
+    if(!is.null(tfs)){
+      if(sum(tfs%in%object@transcriptionFactors) > sum(tfs%in%names(object@transcriptionFactors) ) ){
+        tfs<-object@transcriptionFactors[object@transcriptionFactors%in%tfs]
+      } else {
+        tfs<-object@transcriptionFactors[names(object@transcriptionFactors)%in%tfs]
+      }
+      if(length(tfs)==0)stop("NOTE: 'tfs' argument has no valid names!")
+    } else {
+      tfs<-object@transcriptionFactors
+    }
+    listOfRegulonsAndMode<-listOfRegulonsAndMode[tfs]
+    
+    ##-----remove partial regs, below the minRegulonSize
+    for(nm in names(listOfRegulonsAndMode)){
+      reg<-listOfRegulonsAndMode[[nm]]
+      if(sum(reg<0)<minRegulonSize){
+        reg<-reg[reg>0]
+      }
+      if(sum(reg>0)<minRegulonSize){
+        reg<-reg[reg<0]
+      }
+      listOfRegulonsAndMode[[nm]]<-reg
+    }
+    
+    ##-----check regulon size (both clouds)
+    gs.size.max <- unlist(lapply(listOfRegulonsAndMode, function(reg){
+      max(sum(reg>0),sum(reg<0))
+    }))
+    gs.size.min <- unlist(lapply(listOfRegulonsAndMode, function(reg){
+      min(sum(reg>0),sum(reg<0))
+    }))
+    #object@summary$rgc[,"above.min.size"]<-sum(gs.size.max>=minRegulonSize)
+    ##-----stop when no subset passes the size requirement
+    if(all(gs.size.max<minRegulonSize)){
+      tp<-" overlapped genes with the universe!\n The largest number of overlapping genes is: "
+      stop(paste("NOTE: no partial regulon has minimum >= ", minRegulonSize, tp, max(gs.size.max), sep=""))
+    }
+    ##-----get filtered list
+    if(doSizeFilter){
+      listOfRegulonsAndMode<-listOfRegulonsAndMode[which(gs.size.min>=minRegulonSize)]
+      tfs<-tfs[tfs%in%names(listOfRegulonsAndMode)]
+      if(length(listOfRegulonsAndMode)==0){
+        stop("NOTE: no regulon has passed the 'doSizeFilter' requirement!")
+      }
+    } else {
+      listOfRegulonsAndMode<-listOfRegulonsAndMode[which(gs.size.max>=minRegulonSize)]
+      tfs<-tfs[tfs%in%names(listOfRegulonsAndMode)]
+      if(length(listOfRegulonsAndMode)==0){
+        stop("NOTE: no regulon has passed the 'minRegulonSize' requirement!")
+      }
+    }
+    
+    #---compute phenotypes
+    if(log){
+      dt<-log2(1+object@gexp)-log2(1+gxref)
+    } else {
+      dt <- object@gexp-gxref
+    }
+    
+    ##------reset names to integer values
+    junk<-lapply(names(listOfRegulonsAndMode), function(i){
+      reg<-listOfRegulonsAndMode[[i]]
+      names(listOfRegulonsAndMode[[i]])<<-match(names(reg),rownames(dt))
+      NULL
+    })
+    rownames(dt)<-1:nrow(dt)
+    
+    #------
+    if(verbose) cat("Comuting two-tailed GSEA for",length(listOfRegulonsAndMode),"regulon(s) and",length(samples),'sample(s)!\n')
+    if(verbose) pb <- txtProgressBar(style=3)
+    EScores<-list()
+    for(i in 1:length(samples)){
+      res<-.run.tni.gsea2(
+        listOfRegulonsAndMode=listOfRegulonsAndMode,
+        phenotype=dt[, samples[i]],
+        exponent=object@para$gsea2$exponent,
+        verbose=FALSE
+      )
+      EScores$pos<-rbind(EScores$pos,res$positive[tfs])
+      EScores$neg<-rbind(EScores$neg,res$negative[tfs])
+      EScores$dif<-rbind(EScores$dif,res$differential[tfs])
+      if(verbose) setTxtProgressBar(pb, i/length(samples))
+    }
+    if(verbose) close(pb)
+    colnames(EScores$pos)<-names(tfs)
+    colnames(EScores$neg)<-names(tfs)
+    colnames(EScores$dif)<-names(tfs)
+    rownames(EScores$pos)<-samples
+    rownames(EScores$neg)<-samples
+    rownames(EScores$dif)<-samples
+    return(EScores)
+  }
+)
+
+##------------------------------------------------------------------------------
 ##initialization method
 setMethod("initialize",
           "TNI",
@@ -63,6 +229,16 @@ setMethod(
     tnai.checks(name="verbose",para=verbose)
     ##-----preprocessing
     if(verbose)cat("-Preprocessing for input data...\n")
+    
+    #----check NAs and NaNs in gexp
+    na.check <- sum ( is.na(object@gexp) | is.nan(object@gexp) )
+    if(na.check>0){
+      stop("--NOTE: 'gexp' should be a numeric matrix without NAs or NaNs! \n")
+      #---remove NAs
+      #idx<-which(is.na(object@gexp), arr.ind = TRUE)
+      #object@gexp[idx]<-apply(object@gexp[rownames(idx),],1,mean,na.rm=TRUE)
+    }
+    
     ##-----check gexpIDs if available
     if(!is.null(gexpIDs)){
       if(verbose)cat("--Mapping 'gexp' to 'gexpIDs'...\n")
@@ -105,7 +281,17 @@ setMethod(
     sd.check<-sd.check==0
     if(any(sd.check)){
       if(verbose)cat("--Removing inconsistent data: standard deviation is zero for", sum(sd.check),"gene(s)! \n")
+      rmv<-rownames(object@annotation)[sd.check]
       object@gexp<-object@gexp[!sd.check,]
+      object@annotation<-object@annotation[!sd.check,]
+      idx<-object@transcriptionFactors%in%rmv
+      if(any(idx)){
+        object@transcriptionFactors<-object@transcriptionFactors[!idx]
+      }
+      idx<-object@modulators%in%rmv
+      if(any(idx)){
+        object@modulators<-object@modulators[!idx]
+      }
     }
     #-----check TFs in gexp
     object@summary$tfs[,"input"]<-length(object@transcriptionFactors)
@@ -178,8 +364,8 @@ setMethod(
     } else {
       res<-tni.perm.separate(object,verbose)
     }
-    #object@results$adjpv<-res$adjpv
-    object@results$tn.ref<- res$tn.ref * tni.cor(object@gexp,res$tn.ref)
+    object@results$adjpv <- res$adjpv
+    object@results$tn.ref <- res$tn.ref * tni.cor(object@gexp, res$tn.ref, estimator=object@para$perm$estimator)
     object@status["Permutation"] <- "[x]"
     if(verbose)cat("-Permutation analysis complete! \n\n")
     ##update summary and return results
@@ -234,7 +420,7 @@ setMethod(
     ##---apply dpi filter
     if(verbose)cat("-Applying dpi filter...\n")
     object@results$tn.dpi<-tni.dpi(abs(object@results$tn.ref), eps=object@para$dpi$eps)
-    object@results$tn.dpi<-object@results$tn.dpi * tni.cor(object@gexp,object@results$tn.dpi)
+    object@results$tn.dpi<-object@results$tn.dpi * tni.cor(object@gexp,object@results$tn.dpi,estimator=object@para$perm$estimator)
     if(verbose)cat("-DPI filter complete! \n\n")
     object@status["DPI.filter"] <- "[x]"
     ##update summary and return results
@@ -464,9 +650,10 @@ setMethod(
 setMethod(
   "tni.graph",
   "TNI",
-  function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, 
+  function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL,
            amapFilter="quantile", amapCutoff=NULL, ntop=NULL, mask=FALSE, 
-           hcl=NULL, overlap="all", xlim=c(30,80,5), nquant=5, breaks=NULL){
+           hcl=NULL, overlap="all", xlim=c(30,80,5), nquant=5, breaks=NULL, 
+           mds=NULL, nbottom=NULL){
     # chech igraph compatibility
     b1<-"package:igraph0" %in% search()
     b2<- "igraph0" %in%  loadedNamespaces()
@@ -480,6 +667,8 @@ setMethod(
     tnai.checks(name="tni.gtype",para=gtype)
     tnai.checks(name="minRegulonSize",para=minRegulonSize)
     tnai.checks(name="tfs",para=tfs)
+    tnai.checks(name="ntop",para=ntop)
+    tnai.checks(name="mds",para=mds)
     tnai.checks(name="amapFilter",para=amapFilter)
     tnai.checks(name="amapCutoff",para=amapCutoff)
     tnai.checks(name="mask",para=mask)
@@ -557,7 +746,22 @@ setMethod(
         #1st level: a TF
         #2nd level: all MDs of a TF
         #3rd level: a graph
-        g<-tni.mmap.detailed(object,mnet,testedtfs,ntop=ntop)
+        if(is.null(mds)){
+          mds <- modulators
+        } else {
+          idx1<-mds%in%modulators
+          idx2<-mds%in%names(modulators)
+          if(!all(idx1) & !all(idx2)){
+            stop("NOTE: one or more input modutors in 'mds' not listed in the TNI object!")
+          } else {
+            if(sum(idx1)>sum(idx2)){
+              mds<-modulators[modulators%in%mds]
+            } else {
+              mds<-modulators[names(modulators)%in%mds]
+            }
+          }
+        }
+        g<-tni.mmap.detailed(object,mnet,testedtfs, mds, ntop=ntop, nbottom=nbottom)
       } else {
         #get mmap
         #tnet[,]<-0
@@ -1207,11 +1411,3 @@ translateQuery<-function(query,idkey,object,annottype,reportNames){
 }
 
 
-# #---chisq test
-# if(Obs>ExpOV){
-#   yt <- min(0.5,Obs-ExpOV)
-#   chist<-((Obs-ExpOV)-yt)^2/ExpOV
-# } else {
-#   chist<-0
-# }
-# pvalue<-pchisq(chist, df=1, lower.tail=FALSE)

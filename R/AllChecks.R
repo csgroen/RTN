@@ -212,6 +212,12 @@ tnai.checks <- function(name, para) {
       stop("'tfs' should be a character vector, without 'NA' or empty names!",call.=FALSE)
     }
   }
+  else if(name=="mds") {
+    if(!is.null(para)){
+      if( !(is.character(para) || is.numeric(para)) || any(is.na(para)) || any(para==""))
+        stop("'mds' should be a character vector, without 'NA' or empty names!",call.=FALSE)
+    }
+  }
   else if(name=="modulators") {
     if(!is.null(para)){
       if( !(is.character(para) || is.numeric(para)) || any(is.na(para)) || any(para==""))

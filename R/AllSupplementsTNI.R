@@ -109,7 +109,9 @@ tni.perm.separate<-function(object,verbose=TRUE){
       ##pseudocounts are added to avoid P-values of zero
       midist <- (1 + midist)/(1 + np)
       ##pvalue adjustment (local distributions)
-      midist <- p.adjust(midist,method=object@para$perm$pAdjustMethod)
+      if(!object@para$perm$globalAdjustment){
+        midist <- p.adjust(midist,method=object@para$perm$pAdjustMethod)
+      }
       midist    
     })
   } else {
@@ -126,7 +128,9 @@ tni.perm.separate<-function(object,verbose=TRUE){
       ##pseudocounts are added to avoid P-values of zero
       midist <- (1 + midist)/(1 + np)
       ##pvalue adjustment (local distributions)
-      midist <- p.adjust(midist,method=object@para$perm$pAdjustMethod)
+      if(!object@para$perm$globalAdjustment){
+        midist <- p.adjust(midist,method=object@para$perm$pAdjustMethod)
+      }
       if(verbose) setTxtProgressBar(pb, i/length(object@transcriptionFactors))      
       midist   
     })
@@ -137,6 +141,7 @@ tni.perm.separate<-function(object,verbose=TRUE){
     mipval<-p.adjust(mipval,method=object@para$perm$pAdjustMethod)
     mipval<-matrix(mipval,nrow=nrow(pmim),ncol=ncol(pmim))    
   }
+  dimnames(mipval)<-dimnames(pmim)
   ##decide on the significance and return results
   pmim[mipval>object@para$perm$pValueCutoff]<-0
   return(list(tn.ref=pmim,adjpv=mipval))
@@ -198,8 +203,14 @@ tni.perm.pooled<-function(object, parChunks=10, verbose=TRUE){
   mipval <- (1 + ctsum)/(1 + np)
   mipval<-mipval[match(as.numeric(pmim),uniqueVec)]
   ##adjust pvals
-  mipval<-p.adjust(mipval,method=object@para$perm$pAdjustMethod)
-  mipval<-matrix(mipval,nrow=nrow(pmim),ncol=ncol(pmim))
+  if(object@para$perm$globalAdjustment){
+    mipval<-p.adjust(mipval,method=object@para$perm$pAdjustMethod)
+    mipval<-matrix(mipval,nrow=nrow(pmim),ncol=ncol(pmim))   
+  } else {
+    mipval<-matrix(mipval,nrow=nrow(pmim),ncol=ncol(pmim))
+    mipval<-apply(mipval,2,p.adjust,method=object@para$perm$pAdjustMethod)
+  }
+  dimnames(mipval)<-dimnames(pmim)
   ##decide on the significance
   pmim[mipval>object@para$perm$pValueCutoff]=0.0
   return(list(tn.ref=pmim,adjpv=mipval))
@@ -215,9 +226,8 @@ tni.boot<-function(object, parChunks=10, verbose=TRUE){
     tp<-abs(object@results$tn.ref[object@results$tn.ref[,i]!=0,i])
     if(length(tp)>0) min(tp) else 0
   })
-  if(object@para$perm$globalAdjustment){
-    mimark<-rep(max(mimark),length(mimark))
-  }
+  mimark<-rep(median(mimark),length(mimark))
+  
   ##initialize bootstrap matrix
   bcount<-matrix(0,ncol=ncol(object@results$tn.ref),nrow=nrow(object@results$tn.ref))
   ##run bootstrap
@@ -845,7 +855,7 @@ setregs1<-function(object,g,testedtfs,modulators){
 
 ##-----------------------------------------------------------------------------
 ##experimental code!!! (opem mmaps)
-tni.mmap.detailed<-function(object,mnet,testedtfs,ntop){
+tni.mmap.detailed<-function(object,mnet,testedtfs,mds,ntop,nbottom){
   mnet.targets<-list()
   junk<-sapply(testedtfs,function(tf){
     tp1<-object@results$conditional$effect[[tf]]
@@ -857,7 +867,11 @@ tni.mmap.detailed<-function(object,mnet,testedtfs,ntop){
         if(tp2[md]>0) tp[tp<0]<-0 else tp[tp>0]<-0
         tp
       })
-      rownames(res)<-tp1$targets
+      if("targets"%in%colnames(tp1)){
+        rownames(res)<-tp1$targets
+      } else {
+        rownames(res)<-tp1$tagets
+      }
       mnet.targets[[tf]]<<-res
     }
     NULL
@@ -866,8 +880,8 @@ tni.mmap.detailed<-function(object,mnet,testedtfs,ntop){
   gLists<-lapply(names(mnet.targets),function(tf){
     tar<-object@results$tn.dpi[,tf]
     mtar<-mnet.targets[[tf]]
-    mds<-colnames(mtar)
-    glists<-lapply(mds,function(md){
+    tpmds<-mds[mds%in%colnames(mtar)]
+    glists<-lapply(tpmds,function(md){
       mtartp<-mtar[,md]
       mode<-mnet[md,tf]
       tartp<-tar[names(mtartp)]
@@ -886,12 +900,34 @@ tni.mmap.detailed<-function(object,mnet,testedtfs,ntop){
       idx<-sort.list(abs(elist$modeOfAction),na.last=FALSE,decreasing=FALSE)
       elist<-elist[idx,]
       if(!is.null(ntop)){
+        tp<-abs(elist$modulationEffect)
+        tp[1:2]<-NA
+        idx<-sort.list(tp,na.last=FALSE,decreasing=FALSE)
+        elist<-elist[idx,]
         idx<-c(1,2,rev(3:nrow(elist)))[1:(ntop+2)]
+        if(!is.null(nbottom)){
+          idx<-c(idx, 3:(nbottom+2) )
+        }
         elist<-elist[sort(idx),]
       }
       #---
       g<-igraph::graph.edgelist(as.matrix(elist[,1:2]), directed=TRUE)
-      #set node type
+      #---
+      xy<-drcircle(nv=vcount(g)-3)
+      hd<-data.frame(x=c(-0.14,0,0.2),y=c(-0.9,-0.7,-0.8))
+      xy<-rbind(hd,xy)
+      xy$name<-V(g)$name
+      #---resort
+      idx<-abs(elist$modeOfAction)
+      idx[elist$modulationType==0]<-NA
+      idx<-sort.list(idx,na.last=FALSE,decreasing=FALSE)
+      elist<-elist[idx,]
+      #---
+      g<-igraph::graph.edgelist(as.matrix(elist[,1:2]), directed=TRUE)
+      #---set node xy   
+      V(g)[xy$name]$coordX<-xy$x
+      V(g)[xy$name]$coordY<-xy$y
+      #---set node type
       V(g)$nodeType<-rep("Target",length(V(g)$name))
       idx<-match(c(md,"TF|Md",tf),V(g)$name)
       V(g)$nodeType[idx]<-c("Md","TF|Md","TF")
@@ -900,17 +936,14 @@ tni.mmap.detailed<-function(object,mnet,testedtfs,ntop){
       E(g)$modeOfAction<-elist$modeOfAction
       E(g)$modulationEffect<-elist$modulationEffect
       E(g)$modulationType<-elist$modulationType
-      xy<-drcircle(nv=vcount(g)-3)
-      hd<-data.frame(x=c(-0.14,0,0.2),y=c(-0.9,-0.7,-0.8))
-      xy<-rbind(hd,xy)
-      V(g)$coordX<-xy$x
-      V(g)$coordY<-xy$y
+      #---
       g
     })
-    names(glists)<-mds
+    names(glists)<-names(tpmds)
     glists
   })
-  names(gLists)<-names(mnet.targets)
+  # names(gLists)<-names(mnet.targets)
+  names(gLists)<-names(testedtfs)
   #---
   gLists<-lapply(gLists,function(gg){
     gg<-lapply(gg,function(g){
@@ -942,19 +975,23 @@ setregs2<-function(g){
   V(g)$nodeFontSize[V(g)$nodeType!="Target"]<-16
   V(g)$nodeLineWidth<-2.8
   #set edge attr
-  E(g)$edgeColor<-"grey85"
+  E(g)$edgeColor<-"grey65"
   E(g)$edgeWidth<-2
-  E(g)$edgeWidth[E(g)$modulationType==0]<-1
+  E(g)$edgeWidth[E(g)$modulationType==0]<-2
   #--
-  g<-att.sete(g=g, from="modulationType", to='edgeColor', title="",
-              categvec=c(2,1,0),cols=c("black","grey65","grey85"))
+  g<-att.sete(g=g, from="modulationType", to='edgeColor', title="", categvec=c(2,1,0),cols=c("black","grey50","grey70"))
+  #--
+  #E(g)$absModulationEffect<-sign(E(g)$modulationEffect)
+  #g<-att.sete(g=g, from="absModulationEffect", to='edgeColor', title="",  categvec=-1:1, cols=c("grey65","grey95","grey65"))
+  #--
+  E(g)$edgeColor[E(g)$modulationType==2]<-"black"
   g$legEdgeColor$legend<-c("conditioned","modulated","non-modulated")
   #--
   el<-data.frame(get.edgelist(g),E(g)$modulationType,stringsAsFactors=FALSE)
   ndm<-el[el[,3]==0,2]
-  V(g)$nodeLineColor[V(g)$name%in%ndm]<-"grey85"
+  V(g)$nodeLineColor[V(g)$name%in%ndm]<-"grey60"
   V(g)$nodeFontColor<-"black"
-  V(g)$nodeFontColor[V(g)$name%in%ndm]<-"grey85"
+  V(g)$nodeFontColor[V(g)$name%in%ndm]<-"grey40"
   g
 }
 drcircle<-function (nv, ybend=1, xbend=1, ang=1, rotate=0, plot=FALSE) {
@@ -1333,6 +1370,52 @@ treemap<-function(hc){
   obj$lineage<-lineage
   obj$rootid<-root
   return(obj)
+}
+##---------------------------------------------------------
+.run.tni.gsea2 <- function(listOfRegulonsAndMode, phenotype, exponent=1, verbose=TRUE) {
+  ##-----get ordered phenotype
+  phenotype<-phenotype[order(phenotype,decreasing=TRUE)]
+  ##-----calculate enrichment scores for all regulons
+  listOfRegulonsUp <- lapply(listOfRegulonsAndMode, function(reg){
+    names(reg[reg>0])
+  })
+  listOfRegulonsDown <- lapply(listOfRegulonsAndMode, function(reg){
+    names(reg[reg<0])
+  })
+  GSEA2.results.up <- .gsea2tni(listOfRegulonsUp, phenotype=phenotype,exponent=exponent)
+  GSEA2.results.down <- .gsea2tni(listOfRegulonsDown, phenotype=phenotype,exponent=exponent)
+  ##-----
+  b1<-length(GSEA2.results.up)>0 && length(GSEA2.results.down)>0
+  b2<-length(GSEA2.results.up)==length(GSEA2.results.down)
+  if(b1 && b2) {
+    GSEA2.results.both <- GSEA2.results.up-GSEA2.results.down
+  } else {
+    GSEA2.results.up <- numeric()
+    GSEA2.results.down <- numeric()
+    GSEA2.results.both <- numeric()
+  }
+  #-----format, pack and return results
+  GSEA2.results.up<-round(GSEA2.results.up,2)
+  GSEA2.results.down<-round(GSEA2.results.down,2)
+  GSEA2.results.both<-round(GSEA2.results.both,2)
+  GSEA2.results<-list(positive=GSEA2.results.up,negative=GSEA2.results.down,differential=GSEA2.results.both)
+  return( GSEA2.results )
+}
+##---------------------------------------------------------
+.gsea2tni <- function(listOfRegulons, phenotype, exponent=1) {
+  if(length(listOfRegulons) > 0){
+    scoresObserved<-sapply(listOfRegulons,function(reg){
+      if(length(reg)>0){
+        res<-gseaScores4RTN(geneList=phenotype,geneSet=reg, exponent=exponent)
+      } else {
+        res<-0
+      }
+      return(res)
+    })
+  } else {
+    scoresObserved <- NULL
+  }
+  return(scoresObserved)
 }
 
 #---------------------------------------------------------------

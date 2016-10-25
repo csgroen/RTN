@@ -31,6 +31,11 @@ setGeneric("tni2tna.preprocess",
            function(object, phenotype=NULL, hits=NULL, phenoIDs=NULL, duplicateRemoverMethod="max", 
                     verbose=TRUE) 
              standardGeneric("tni2tna.preprocess"), package="RTN")
+setGeneric("tni.gsea2",
+           function(object, minRegulonSize=15, doSizeFilter=FALSE, exponent=1, tnet="dpi",
+                    tfs=NULL, samples=NULL, features=NULL, refsamp=NULL, log=FALSE,
+                    verbose=TRUE) 
+             standardGeneric("tni.gsea2"), package="RTN")
 ##-------------------------------------------------------------------------
 setGeneric("tna.graph",
            function(object, tnet="dpi", gtype="rmap", minRegulonSize=15, tfs=NULL, amapFilter="quantile", amapCutoff=NULL, ...)
@@ -81,5 +86,16 @@ setGeneric("avs.evse",
 setGeneric("avs.get",
            function(object, what="summary", report=FALSE, pValueCutoff=NULL) 
              standardGeneric("avs.get"), package="RTN")
+##-------------------------------------------------------------------------
+setGeneric("tni2tpc.corpcor",
+           function(object, verbose=TRUE)
+             standardGeneric("tni2tpc.corpcor"), package="RTN")
 
+setGeneric("tpc.fuseNetwork",
+           function(objectlist, verbose=TRUE)
+             standardGeneric("tpc.fuseNetwork"), package="RTN")
+
+setGeneric("tpc.countedges",
+           function(object, cutoff.method="prob", cutoff.tr = 0.9, verbose=TRUE)
+             standardGeneric("tpc.countedges"), package="RTN")
 

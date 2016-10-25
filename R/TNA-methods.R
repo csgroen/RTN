@@ -184,7 +184,7 @@ setMethod(
           if(order && nrow(query)>1)query<-query[order(query[,"Pvalue"],decreasing=TRUE),,drop=FALSE]
         } else {
           if(ntop>nrow(query)|| ntop<0)ntop=nrow(query)
-          if(nrow(query)>1){
+          if(order && nrow(query)>1){
             idx<-sort.list(query[,"Pvalue"]) 
             query<-query[idx[1:ntop],,drop=FALSE]
           }
@@ -202,8 +202,8 @@ setMethod(
             query<-query[query[,"Adjusted.Pvalue"] <= object@para$gsea2$pValueCutoff,,drop=FALSE]
             if(order && nrow(query)>1)query<-query[order(query[,"Pvalue"]),,drop=FALSE]
           } else {
-            if(ntop>nrow(query)|| ntop<0)ntop=nrow(query)
-            if(nrow(query)>1){
+            if(ntop>nrow(query) || ntop<0)ntop=nrow(query)
+            if(order && nrow(query)>1){
               idx<-sort.list(query[,"Pvalue"]) 
               query<-query[idx[1:ntop],,drop=FALSE]
             }
@@ -230,7 +230,6 @@ setMethod(
         query$positive<-object@results$GSEA2.results$positive[rownames(query$differential),,drop=FALSE]
         query$negative<-object@results$GSEA2.results$negative[rownames(query$differential),,drop=FALSE]
       }
-      
       if(!is.null(idkey))warning("'idkey' argument has no effect on consolidated tables!")
     } else if(what=="overlap"){
       query<-object@results$overlap.results
@@ -530,7 +529,7 @@ setMethod(
       warning("NOTE: it is expected 'phenotype' data as differential expression values (e.g. logFC)!")
     }
     ##-----get tnet and regulons
-    if(tnet=="cdt"){
+    if(tnet=="cdt"){ #REVISAR p/ compatibilidade com arg 'tfs'
       tnet<-object@transcriptionalNetwork
       listOfRegulonsAndMode<-object@listOfModulators
     } else if(tnet=="ref"){
@@ -583,7 +582,7 @@ setMethod(
     gs.size <- unlist(lapply(listOfRegulonsAndMode, function(reg){
       max(sum(reg>0),sum(reg<0))
     }))
-    object@summary$rgc[,"above.min.size"]<-sum(gs.size>minRegulonSize)
+    object@summary$rgc[,"above.min.size"]<-sum(gs.size>=minRegulonSize)
     ##-----stop when no subset passes the size requirement
     if(all(gs.size<minRegulonSize)){
       tp<-" overlapped genes with the universe!\n The largest number of overlapping genes is: "
@@ -1601,9 +1600,9 @@ run.gsea2 <- function(listOfRegulonsAndMode, phenotype, pAdjustMethod="BH",
     adjust.pval.both <- p.adjust(pvalues.both, method = pAdjustMethod)
     GSEA2.results.both <- cbind(gs.size.up+gs.size.down,test.collection.both$Observed.scores,pvalues.both, adjust.pval.both)
   } else {
-    GSEA2.results.up <- matrix(, nrow=0, ncol=4)
-    GSEA2.results.down <- matrix(, nrow=0, ncol=4)
-    GSEA2.results.both <- matrix(, nrow=0, ncol=4)
+    GSEA2.results.up <- matrix(nrow=0, ncol=4)
+    GSEA2.results.down <- matrix(nrow=0, ncol=4)
+    GSEA2.results.both <- matrix(nrow=0, ncol=4)
   }
   colnames(GSEA2.results.up) <- c("Regulon.Size", "Observed.Score", "Pvalue", "Adjusted.Pvalue")
   colnames(GSEA2.results.down) <- c("Regulon.Size", "Observed.Score", "Pvalue", "Adjusted.Pvalue")

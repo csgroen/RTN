@@ -132,9 +132,10 @@ pairwiseSynergy <- function(collectionsOfPairs, phenotype, exponent=1,
   if(isParallel() && length(collectionsOfPairs)>1) {
     if(verbose)cat("-Performing synergy analysis (parallel version - ProgressBar disabled)...\n")
     if(verbose)cat("--For", length(collectionsOfPairs), "regulon pairs...\n")
-    gseaScores<-gseaScores
     #get permutation scores
-    permScores<-parSapply(getOption("cluster"),1:length(collectionsOfPairs), function(i){
+    cl<-getOption("cluster")
+    snow::clusterExport(cl, list("gseaScores4RTN"),envir=environment())
+    permScores<-parSapply(cl,1:length(collectionsOfPairs), function(i){
       gsPair<-collectionsOfPairs[[i]]
       bl1 <- length(gsPair[[2]]) >= 1
       bl2 <- length(gsPair[[2]]) >= minter*length(gsPair[[1]])
@@ -197,24 +198,13 @@ pairwiseSynergy <- function(collectionsOfPairs, phenotype, exponent=1,
 ##..(obs.: subsamples of the same size of the unique set!)
 pairwiseShadow <- function(collectionsOfPairs, phenotype, exponent=1, 
                            nPermutations=1000, minIntersectSize=1, verbose=TRUE) {
-  ##check if package snow has been loaded and 
-  ##a cluster object has been created  
-  b1<-"package:snow" %in% search()
-  b2<-tryCatch({
-    cl<-getOption("cluster")
-    cl.check<-FALSE
-    if(is(cl, "cluster")){
-      cl.check <- all( sapply(1:length(cl),function(i)isOpen(cl[[i]]$con) ) == TRUE )
-    }
-    cl.check
-  }, error=function(e){ FALSE 
-  })
   ##min intersect
   minter<-as.integer(minIntersectSize)*0.01
-  if( b1 && b2 && length(collectionsOfPairs)>1) {
-    gseaScores<-gseaScores
+  if( isParallel() && length(collectionsOfPairs)>1) {
     #get permutation scores
-    permScores<-parSapply(getOption("cluster"),1:length(collectionsOfPairs), function(i){
+    cl<-getOption("cluster")
+    snow::clusterExport(cl, list("gseaScores4RTN"),envir=environment())
+    permScores<-parSapply(cl,1:length(collectionsOfPairs), function(i){
       gsPair<-collectionsOfPairs[[i]]
       bl1 <- length(gsPair[[1]])-length(gsPair[[2]]) >= 1
       bl2 <- length(gsPair[[1]])-length(gsPair[[2]]) >= minter*length(gsPair[[1]])
@@ -434,20 +424,16 @@ tna.hyper.pairs <- function(listOfRegulons, universe,
   regulon.filtered <- which(regulon.size >= minRegulonSize)
   ##if verbose, create a progress bar to monitor computation progress
   if(verbose) pb <- txtProgressBar(style=3)
-  results <- matrix(, nrow=0, ncol=8)
+  results <- matrix(NA, nrow=0, ncol=8)
   colnames(results) <- c("Regulon1","Regulon2","Universe.Size", "R1.Size", "R2.Size", 
                          "Expected.Overlap", "Observed.Overlap", "Pvalue")
   for(i in 1:length(regulon.filtered)){
       if(verbose) setTxtProgressBar(pb, i/length(regulon.filtered))
       r1<-regulon.filtered[i]
       r.filter<-which(regulon.filtered > r1)
-      res <- t(
-            sapply(r.filter, 
-                   function(r2) {
-                     tna.hyper(listOfRegulons[r1], universe, listOfRegulons[r2])
-                   }
-            )
-      )
+      res <- t(sapply(
+        r.filter, function(r2) {tna.hyper(listOfRegulons[r1], universe, listOfRegulons[r2])}
+        ))
       if(ncol(res)==6){
         res<-data.frame(Regulon1=names(r1),Regulon2=rownames(res),res,stringsAsFactors=FALSE)
         results<-rbind(results,res)       
@@ -463,7 +449,7 @@ tna.hyper.pairs <- function(listOfRegulons, universe,
     results <- results[order(results[, "Adjusted.Pvalue"]), , drop=FALSE]	
     rownames(results)<-1:nrow(results)
   } else {
-    results <- matrix(, nrow=0, ncol=7)
+    results <- matrix(NA, nrow=0, ncol=7)
     colnames(results) <- c("Universe.Size", 
                            "R1.Size", "R2.Size", "Expected.Overlap", 
                            "Observed.Overlap", "Pvalue", "Adjusted.Pvalue")
@@ -493,7 +479,7 @@ tna.hyper <- function(regulon1, universe, regulon2) {
   n <- length(regulon2)	
   HGTresults <- phyper(k-1, m, Nm, n, lower.tail = F)
   ex <- (n/N)*m
-  if(m == 0) HGTresults <- NA
+  if(m == 0 | n == 0) HGTresults <- 1
   hyp.vec <- c(N, m, n, ex, k, HGTresults)
   names(hyp.vec) <- c("Universe.Size", "R1.Size", "R2.Size", 
                       "Expected.Overlap", "Observed.Overlap", "Pvalue")

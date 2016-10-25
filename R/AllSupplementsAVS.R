@@ -1115,4 +1115,29 @@ getEvseEqtls<-function(object,tfs=NULL){
   res
 }
 
+##------------------------------------------------------------------------
+##report markers and linked markers from computed variantSet
+report.vset<-function(variantSet){
+  lkmarkers<-lapply(variantSet,function(vset){
+    if(class(vset)=="IRanges"){
+      res<-lapply(names(vset@metadata$blocks),function(rs){
+        linked_rs<-names(vset@metadata$blocks[[rs]])
+        cbind(rs,linked_rs)
+      })
+    } else {
+      stop("Please, check 'vset' class! Method implemented for 'IRanges' objects only!")
+    }
+    res
+  })
+  summ<-NULL
+  junk<-lapply(lkmarkers,function(lt){
+    lapply(lt,function(lt){
+      summ<<-rbind(summ,lt)
+    })
+  })
+  idx<-which(summ[,1]!=summ[,2])
+  summ<-summ[idx,]
+  summ<-data.frame(summ,stringsAsFactors = FALSE)
+  return(summ)
+}
 

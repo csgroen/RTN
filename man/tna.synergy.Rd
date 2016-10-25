@@ -105,7 +105,7 @@ tna.get(rtna,what="synergy")
 # run parallel version with SNOW package!
 library(snow)
 options(cluster=makeCluster(4, "SOCK"))
-rtna <- tna.synergy(rtna)
+rtna <- tna.synergy(rtna,stepFilter=FALSE)
 stopCluster(getOption("cluster"))
 }
 }

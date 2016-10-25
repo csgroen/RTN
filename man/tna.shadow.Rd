@@ -107,7 +107,7 @@ tna.get(rtna,what="shadow")
 # run parallel version with SNOW package!
 library(snow)
 options(cluster=makeCluster(4, "SOCK"))
-rtna <- tna.shadow(rtna)
+rtna <- tna.shadow(rtna,stepFilter=FALSE)
 stopCluster(getOption("cluster"))
 }
 }

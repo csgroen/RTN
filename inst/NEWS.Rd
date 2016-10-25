@@ -2,6 +2,25 @@
 \title{RTN News}
 \encoding{UTF-8}
 
+\section{Version 1.14.0}{
+  \itemize{
+    \item Improved computational performance and RTN workflows.
+    \item Introduced partial correlation metric to derive regulons.
+  }
+}
+
+\section{Version 1.12.0}{
+  \itemize{
+    \item Improved computational performance and RTN workflows.
+  }
+}
+
+\section{Version 1.10.0}{
+  \itemize{
+    \item Improved computational performance and RTN workflows.
+  }
+}
+
 \section{Version 1.8.0}{
   \itemize{
     \item Improved computational performance and RTN workflows.

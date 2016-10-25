@@ -371,6 +371,7 @@ plot.gsea2<-function(resgsea, rgcs, phenotype, nPermutations, exponent,
     tests$pv[["down"]]<-resgsea$negative[i,"Pvalue"]
     tests$adjpv[["down"]]<-resgsea$negative[i,"Adjusted.Pvalue"]
     tests$adjpv[]<-paste("= ",as.character(format(tests$adjpv,scientific=TRUE,digits=2)),sep="")
+    tests$dES<-resgsea$differential[i,"Observed.Score"]
     ##-----fix pvalue report for the resolution
     idx<-tests$pv==pvresolu
     tests$adjpv[idx]<-pvcutoff
@@ -441,7 +442,7 @@ make.plot2 <- function(tests, labPheno, file, filepath, heightPanels, ylimPanels
   pdf(file=file.path(filepath, paste(file,"_",tests$label,".pdf", sep="")), 
       width=width, height=height)
   gsplot2(tests$testup$runningScore, tests$testup$enrichmentScore, 
-          tests$testdown$runningScore, tests$testdown$enrichmentScore, 
+          tests$testdown$runningScore, tests$testdown$enrichmentScore,tests$dES, 
           tests$positions, tests$adjpv, tests$geneList, tests$label, heightPanels, 
           ylimPanels, ylabPanels, xlab, labPheno, alpha, sparsity, ...=... )
   dev.off()
@@ -449,7 +450,7 @@ make.plot2 <- function(tests, labPheno, file, filepath, heightPanels, ylimPanels
 #-------------------------------------------------------------------------------------
 #--subfunction for tna.plot.gsea2
 gsplot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enrichmentScoreDown,
-                    positions, adjpv, geneList, label, heightPanels, ylimPanels, ylabPanels, 
+                    dES, positions, adjpv, geneList, label, heightPanels, ylimPanels, ylabPanels, 
                     xlab, labPheno, alpha, sparsity, ...) {
   #-------------------------------------------------
   positions<-as.matrix(positions)
@@ -486,8 +487,12 @@ gsplot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enrichm
   if(heightPanels[1]>0){
     xlim<-c(0,length(geneList))
     nn<-ifelse(min(geneList)<0,4,3)
-    pp<-pretty(c(geneList,ylimPanels[1:2]),n=nn)
-    ylim<-c(min(pp),max(pp))
+    if(min(geneList)<min(ylimPanels) || max(geneList)>max(ylimPanels) ){
+      pp<-pretty(c(range(geneList),ylimPanels[1:2]),n=nn)
+      ylim<-c(min(pp),max(pp))
+    } else {
+      ylim<-ylimPanels[1:2]
+    }
     par(mar=c(0.0, 5.0, 1.5, 1.5),mgp=c(2.2,0.6,0),tcl=-0.2,family="Times")
     plot(x=c(1,max(rsc.vec[,1])),y=c(min(geneList),max(geneList)), type="n", 
          axes= FALSE,xlab="", ylab=ylabPanels[1], cex.lab=cexlev[1], ylim=ylim,xlim=xlim, ...=...)
@@ -495,6 +500,8 @@ gsplot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enrichm
     sq<-c(1:length(geneList))%%sparsity;sq[sq>1]<-0
     sq<-as.logical(sq)
     lines(x=c(1:length(geneList))[sq],y=geneList[sq],col="#008080",lwd=1.5)
+    pp<-pretty(c(geneList,ylimPanels[1:2]),n=nn)
+    pp<-pp[(pp >= ylim[1] & pp <= ylim[2])]
     axis(2,line=0, cex.axis=cexlev[2], las=2, at=pp, labels=pp, lwd=1.3,...=...)
     if(!is.null(labPheno)){
       legend("topright", legend=labPheno, col="#008080", pch="", x.intersp=0.5, 
@@ -580,6 +587,7 @@ gsplot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enrichm
     legend("bottomleft", legend=lbstat, col=c(rsc.colors[1],rsc.colors[2],NA), pch=20, bty="n",cex=cexlev[5], 
            pt.cex=1.2, title="  Adj. p-value", title.adj = 0, y.intersp=0.85,x.intersp=0.6, ...=...)
     legend("topright", legend=label, col=NA, pch=NA, bty="n",cex=cexlev[1]*1.3, pt.cex=1.2, title=NULL,  ...=...)
+    legend("bottomright", legend=paste("dES = ",dES,sep=""), col=NA, pch=NA, bty="n",cex=cexlev[1]*0.6, title=NULL,  ...=...)
   }
 }
 

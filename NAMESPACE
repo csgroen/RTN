@@ -1,7 +1,8 @@
 exportClasses(
  "TNI",
  "TNA",
- "AVS"
+ "AVS",
+ "TPC"
 )
 
 exportMethods(
@@ -12,6 +13,7 @@ exportMethods(
   "tni.get",
   "tni.graph",
   "tni.conditional",
+  "tni.gsea2",
   "tni2tna.preprocess",
   "tna.mra",
   "tna.gsea1",
@@ -24,7 +26,10 @@ exportMethods(
   "avs.preprocess",
   "avs.vse",
   "avs.evse",
-  "avs.get"
+  "avs.get",
+  "tni2tpc.corpcor",
+  "tpc.countedges",
+  "tpc.fuseNetwork"
 )
 
 export(
@@ -44,3 +49,13 @@ importFrom(ff,ff)
 importFrom(car,powerTransform,bcPower)
 import(igraph)
 import(methods)
+importFrom(corpcor,pcor.shrink)
+importFrom(fdrtool,fdrtool)
+importFrom(reshape2,melt)
+
+importFrom(grDevices, col2rgb, colorRampPalette, dev.off, palette, pdf, rgb)
+importFrom(graphics, abline, axis, boxplot, hist, image, layout, legend, lines, mtext, par, plot, plot.new, points, polygon, segments, title)
+importFrom(stats, aggregate, anova, aov, as.dist, coef, cor, formula, hclust, ks.test, lm, manova, median, model.matrix, p.adjust, phyper, pnorm, qnorm, quantile, sd, shapiro.test)
+importFrom(utils, data, setTxtProgressBar, txtProgressBar)
+
+

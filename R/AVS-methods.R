@@ -413,7 +413,11 @@ setMethod(
     } else if(what=="validatedMarkers"){
       query<-object@validatedMarkers      
     } else if(what=="variantSet"){
-      query<-object@variantSet      
+      if(report){
+        query<-report.vset(object@variantSet)
+      } else {
+        query<-object@variantSet        
+      }
     } else if(what=="randomSet"){
       query<-object@randomSet
     } else if(what=="randomMarkers"){

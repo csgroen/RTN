@@ -344,8 +344,8 @@ tnai.checks <- function(name, para) {
     return(para)
   }
   else if(name=="minIntersectSize") {
-    if(!(is.integer(para) || is.numeric(para)) || length(para)!=1 || para<1 || para>100)
-      stop("'minIntersectSize' should be an integer >=1 and <=100 !",call.=FALSE)
+    if(!(is.integer(para) || is.numeric(para)) || length(para)!=1 || para<0 || para>100)
+      stop("'minIntersectSize' should be an integer >=0 and <=100 !",call.=FALSE)
   }
   else if(name=="minAgreement") {
     if(!(is.integer(para) || is.numeric(para)) || length(para)!=1 || para<1 || para>100)
@@ -374,6 +374,10 @@ tnai.checks <- function(name, para) {
   else if(name=="verbose") {
     if(!is.logical(para) || length(para)!=1)
       stop("'verbose' should be a logical value!",call.=FALSE)
+  }
+  else if(name=="iConstraint") {
+    if(!is.logical(para) || length(para)!=1)
+      stop("'iConstraint' should be a logical value!",call.=FALSE)
   }
   else if(name=="mask") {
     if(!is.logical(para) || length(para)!=1)

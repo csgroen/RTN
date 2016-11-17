@@ -25,7 +25,7 @@ setGeneric("tni.conditional",
            function(object, modulators=NULL, tfs=NULL, sampling=35, pValueCutoff=0.01, 
                     pAdjustMethod="bonferroni", minRegulonSize=15, minIntersectSize=5, 
                     miThreshold="md", prob=0.99, pwtransform=FALSE, medianEffect=FALSE, 
-                    verbose=TRUE, ...)
+                    iConstraint=TRUE, verbose=TRUE, ...)
              standardGeneric("tni.conditional"), package="RTN")
 setGeneric("tni2tna.preprocess",
            function(object, phenotype=NULL, hits=NULL, phenoIDs=NULL, duplicateRemoverMethod="max", 

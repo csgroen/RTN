@@ -544,8 +544,7 @@ setMethod(
       query<-object@results$conditional$count
       for(nm in names(query)){
         qry<-query[[nm]]
-        qry<-qry[qry[,2 ]=="FALSE" | qry[,2 ]=="0",-2,drop=FALSE]
-        qry<-qry[qry[,2 ]=="FALSE" | qry[,2 ]=="0",-2,drop=FALSE]
+        qry<-qry[ !qry[,2 ] & !qry[,3 ],-c(2,3),drop=FALSE]
         query[[nm]]<-qry
       }
       #obs. daqui resultados saem ordenados, segundo stat disponivel!
@@ -913,7 +912,7 @@ setMethod(
   function(object, modulators=NULL, tfs=NULL, sampling=35, pValueCutoff=0.01, 
            pAdjustMethod="bonferroni", minRegulonSize=15, minIntersectSize=5, 
            miThreshold="md", prob=0.99, pwtransform=FALSE, medianEffect=FALSE, 
-           verbose=TRUE, mdStability=FALSE){
+           iConstraint=TRUE, verbose=TRUE, mdStability=FALSE){
     ##-----check input arguments
     if(object@status["DPI.filter"]!="[x]")stop("NOTE: input 'object' needs dpi analysis!")
     tnai.checks(name="modulators",para=modulators)
@@ -928,7 +927,8 @@ setMethod(
     tnai.checks(name="medianEffect",para=medianEffect)
     tnai.checks(name="prob",para=prob)
     tnai.checks(name="verbose",para=verbose)
-    #check additional args (experimental)
+    tnai.checks(name="iConstraint",para=iConstraint)
+    #check additional (experimental) args
     if(is.logical(mdStability)){
       mrkboot<-NULL
     } else {
@@ -939,10 +939,10 @@ setMethod(
     object@para$cdt<-list(sampling=sampling, pValueCutoff=pValueCutoff,
                           pAdjustMethod=pAdjustMethod, minRegulonSize=minRegulonSize, 
                           minIntersectSize=minIntersectSize, miThreshold=NA, prob=prob,
-                          pwtransform=pwtransform)
+                          pwtransform=pwtransform, iConstraint=iConstraint)
     ##-----summary info
     cdt<-unlist(object@para$cdt)
-    object@summary$para$cdt<-matrix(cdt,nrow=1,ncol=8)
+    object@summary$para$cdt<-matrix(cdt,nrow=1,ncol=9)
     rownames(object@summary$para$cdt)<-"Parameter"
     colnames(object@summary$para$cdt)<-names(cdt)
 
@@ -1026,11 +1026,18 @@ setMethod(
     tfAllTargets<-tfAllTargets[tfs]
     tnetAllTargets<-rownames(object@results$tn.dpi)[rowSums(object@results$tn.dpi!=0)>0]
     ##-----Checking independence of modulators and TFs
-    if(verbose)cat("--Applying modulator independence constraint...\n")
     IConstraintList<-list()
-    for(tf in tfs){
-      idx<-object@results$tn.ref[,tf]!=0
-      IConstraintList[[tf]]<-c(tf,rownames(object@results$tn.ref)[idx])
+    if(iConstraint){
+      if(verbose)cat("--Applying modulator independence constraint...\n")
+      temp_obj<-tni.dpi.filter(object, eps=0, verbose=FALSE)
+      for(tf in tfs){
+        idx<-temp_obj@results$tn.ref[,tf]!=0
+        IConstraintList[[tf]]<-c(tf,rownames(temp_obj@results$tn.ref)[idx])
+      }
+    } else {
+      for(tf in tfs){
+        IConstraintList[[tf]]<-NA
+      }
     }
     ##-----set sub-sample idx
     spsz<-round(ncol(object@gexp)*sampling/100,0)
@@ -1044,7 +1051,7 @@ setMethod(
     if(length(modulators)==1){
       gxtemp<-rbind(gxtemp,gxtemp)
     }
-    ##--run limma
+    ##--run limma (for modulator range constraint)
     t <- factor(c(rep("low",spsz),rep("high",spsz)))
     design <- model.matrix(~0+t)
     fit <- lmFit(gxtemp,design)
@@ -1119,7 +1126,7 @@ setMethod(
     glstat<-list()
     if(verbose)cat("\n")
     if(verbose)cat("-Performing conditional mutual information analysis...\n")
-    if(verbose)cat("--For", length(tfs), "tfs and" , length(modulators), "candidate modulators \n")
+    if(verbose)cat("--For", length(tfs), "tfs and" , length(modulators), "candidate modulator(s) \n")
     if(verbose && !mdStability) pb <- txtProgressBar(style=3)
     
     for(i in 1:length(modulators)){
@@ -1163,7 +1170,7 @@ setMethod(
       miDelta[!sigDelta]<-0
       
       #run main analysis
-      sapply(tfs,function(tf){
+      for(tf in tfs){
         
         dtvec<-miDelta[,tf]
         tftar<-tfTargets[[tf]]
@@ -1179,17 +1186,16 @@ setMethod(
         ObsOV<-sum(dtvec[tftar]!=0)
         
         #---run stats
+        ObsPos<-sum(dtvec[tftar]>0)
+        ObsNeg<-sum(dtvec[tftar]<0)
         #check exclusion list (independence/range constraint)
         irconst<-md%in%IConstraintList[[tf]] || md%in%RConstraintList
         #check minimum number of modulated targets for testing (n constraint)
-        nconst<-(ObsOV/RegSZ*100)<minIntersectSize || ExpOV<1
+        nconst<-(ObsOV/RegSZ*100)<minIntersectSize # || ExpOV<1
         if(irconst || nconst ){
-          ObsPos<-NA;ObsNeg<-NA;Mode<-NA;pvfet<-NA; 
-          dks<-NA;pvks<-NA;dtvec[]<-0
+          Mode<-0;pvfet<-NA; dks<-NA;pvks<-NA;dtvec[]<-0
         } else {
           #---get mode of actions
-          ObsPos<-sum(dtvec[tftar]>0)
-          ObsNeg<-sum(dtvec[tftar]<0)
           Mode<-if(ObsNeg>ObsPos) -1 else if(ObsNeg<ObsPos) 1 else 0
           #---set obs to predicted mode
           Obs<-if(Mode==-1) abs(ObsNeg) else if(Mode==1) ObsPos else ObsOV
@@ -1233,25 +1239,24 @@ setMethod(
         }
         
         #---add results to a list
-        reseffect[[tf]][[md]]<<-dtvec[tftar]
-        rescount[[tf]][md,]<<-c(NA,NA,NA,NA,UniSZ,EffectSZ,RegSZ,ExpOV,ObsOV,ObsNeg,ObsPos,Mode,pvfet,NA,dks,pvks,NA)
-        rescount[[tf]][md,c(1,2,3,4)]<<-c(md,irconst,nconst,tf)
-        
+        reseffect[[tf]][[md]]<-dtvec[tftar]
+        rescount[[tf]][md,]<-c(NA,NA,NA,NA,UniSZ,EffectSZ,RegSZ,ExpOV,ObsOV,ObsNeg,ObsPos,Mode,pvfet,NA,dks,pvks,NA)
+        rescount[[tf]][md,c(1,4)]<-c(md,tf)
+        rescount[[tf]][md,c(2,3)]<-c(irconst,nconst)
         #---retain modulated targets
         mdtftar<-tftar[ dtvec[tftar]!=0]
         if(length(mdtftar)>1){
-          modregulons[[md]][[tf]]<<-mdtftar
+          modregulons[[md]][[tf]]<-mdtftar
         } else {
-          modregulons[[md]][[tf]]<<-c(NA,NA)
-          modregulons[[md]][[tf]]<<-mdtftar
+          modregulons[[md]][[tf]]<-c(NA,NA)
+          modregulons[[md]][[tf]]<-mdtftar
         }
-        NULL
         
-      })
+      }
       
       #compute mi differential score for each regulon (signal-to-noise ratio)
       #this is a global stats, only used to assess the median effect 
-      #in the selected regulons
+      #for the selected regulons
       if(medianEffect){
         sig2noise<-sapply(names(modregulons[[md]]),function(tf){
           tftar<-modregulons[[md]][[tf]]
@@ -1268,15 +1273,14 @@ setMethod(
     if(verbose && !mdStability) close(pb)
     
     #set data format
-    junk<-sapply(names(rescount),function(tf){
+    for(tf in names(rescount)){
       results<-rescount[[tf]][-1,,drop=FALSE]
       if(nrow(results)>0){
         results[,"Expected"]<-round(results[,"Expected"],2)
         results[,"KS"]<-round(results[,"KS"],2)
       }
-      rescount[[tf]]<<-results
-      NULL
-    })
+      rescount[[tf]]<-results
+    }
     
     ##global p.adjustment
     #rescount<-p.adjust.cdt(cdt=rescount,pAdjustMethod=pAdjustMethod, p.name="PvKS",adjp.name="AdjPvKS",sort.name="PvKS",roundpv=FALSE)
@@ -1297,7 +1301,7 @@ setMethod(
       modulatedTFs<-unlist(lapply(modulatedTFs,nrow))
       modulatedTFs<-names(modulatedTFs)[modulatedTFs>0]      
       if(length(modulatedTFs)>0){
-        if(verbose)cat("--For", length(modulators), "candidate modulators \n")
+        if(verbose)cat("--For", length(modulators), "candidate modulator(s) \n")
         res<-checkModuationEffect(gxtemp,tfs,modregulons,modulatedTFs,glstat,spsz,
                                   minRegulonSize,pValueCutoff,
                                   nPermutations=object@para$perm$nPermutations,
@@ -1320,7 +1324,7 @@ setMethod(
   return(object)
   }
 )
-#supplementary information: get simple correlation between tfs and modulator candidates
+#supplementary information: get simple correlation between tfs and candidate modulators
 # tni.tfmdcor<-function(x,tfs, mds, estimator="pearson",dg=0, asInteger=FALSE){
 #   ids<-unique(c(tfs,setdiff(mds,tfs)))
 #   x=x[ids,]

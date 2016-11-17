@@ -16,7 +16,7 @@ the TF and its targets conditioned to the gene expression of a modulator.
 tni.conditional(object, modulators=NULL, tfs=NULL, sampling=35, pValueCutoff=0.01, 
 pAdjustMethod="bonferroni", minRegulonSize=15, minIntersectSize=5, 
 miThreshold="md", prob=0.99, pwtransform=FALSE, medianEffect=FALSE, 
-verbose=TRUE, ...)
+iConstraint=TRUE, verbose=TRUE, ...)
 }
 
 \arguments{
@@ -67,9 +67,13 @@ a single logical value specifying whether a Box-Cox power transformation should 
 \item{medianEffect}{
 a single logical value specifying whether to assess the median effect of each modulator. This global statistics does not affect the inferential process over single TF-target interactions. This method is still experimental, it can be used as a complementary analysis to chek the overall modulation effect onto all targets listed in a given regulon (this step  may require substantial computation time).
 }
+\item{iConstraint}{
+a single logical value specifying whether to apply independence constraint between TFs and modulators (when 
+verbose=TRUE) or not (when verbose=FALSE).
+}
 \item{verbose}{
 a single logical value specifying to display detailed messages (when 
-verbose=TRUE) or not (when verbose=FALSE)
+verbose=TRUE) or not (when verbose=FALSE).
 }
 \item{...}{ additional arguments passed to tna.graph function. } 
 }

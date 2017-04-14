@@ -314,6 +314,22 @@ setMethod(
         query[[i]]<-tp
       }
       if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndNames",reportNames)
+    } else if(what=="nondpiregulons.and.mode"){
+      query<-list()
+      for(i in names(object@listOfReferenceRegulons)){
+        tp<-object@referenceNetwork[object@listOfReferenceRegulons[[i]],i]
+        names(tp)<-object@listOfReferenceRegulons[[i]]
+        #---
+        tp <- tp[!names(tp) %in% object@listOfRegulons[[i]] ]
+        #---
+        tpPos <- sort(tp[tp>0], decreasing = TRUE)
+        tpNeg <- sort(tp[tp<0], decreasing = FALSE)
+        if(length(tpPos)>300) tpPos <- tpPos[1:300]
+        if(length(tpNeg)>300) tpNeg <- tpNeg[1:300]
+        tp <- sort(c(tpNeg,tpPos))
+        query[[i]]<-tp
+      }
+      if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndNames",reportNames)
     } else if(what=="summary"){
       query<-object@summary
     } else if(what=="status"){
@@ -535,6 +551,9 @@ setMethod(
     } else if(tnet=="ref"){
       tnet<-object@referenceNetwork
       listOfRegulonsAndMode<-tna.get(object,what="refregulons.and.mode")
+    } else if(tnet=="nondpi"){
+      tnet<-object@transcriptionalNetwork
+      listOfRegulonsAndMode<-tna.get(object,what="nondpiregulons.and.mode")
     } else {
       tnet<-object@transcriptionalNetwork
       listOfRegulonsAndMode<-tna.get(object,what="regulons.and.mode")

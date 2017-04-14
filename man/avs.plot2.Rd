@@ -57,7 +57,7 @@ Mauro Castro
 
 \examples{
 
-###
+# see 'avs.vse' and 'avs.evse' methods.
 
 }
 

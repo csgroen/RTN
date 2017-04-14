@@ -8,8 +8,8 @@ setMethod("initialize",
           "AVS",
           function(.Object, markers) {
             ##-----check arguments
-            if(missing(markers))stop("NOTE: 'markers' is missing!") 
-            markers=tnai.checks(name="markers",markers)
+            if(missing(markers))stop("NOTE: 'markers' is missing!",call.=FALSE) 
+            markers=avs.checks(name="markers",markers)
             ##-----initialization
             .Object@validatedMarkers<-markers
             .Object@markers<-markers$rsid
@@ -21,9 +21,9 @@ setMethod("initialize",
             names(.Object@status) <- c("Preprocess", "VSE", "EVSE")
             ##-----summary info
             ##-----markers
-            sum.info.markers<-matrix(,1,3)
+            sum.info.markers<-matrix(,1,4)
             rownames(sum.info.markers)<-"Marker"
-            colnames(sum.info.markers)<-c("input","valid","colinked.removed")
+            colnames(sum.info.markers)<-c("input","valid","universe.removed","colinked.removed")
             ##-----parameters
             sum.info.para <- list()
             sum.info.para$avs<-matrix(,1,3)
@@ -43,63 +43,6 @@ setMethod("initialize",
             .Object
           }
 )
-##------------------------------------------------------------------------------
-##pre-processing for an avs
-setMethod(
-  "avs.preprocess",
-  "AVS",
-  function(object, nrand=1000, mergeColinked=TRUE, reldata="RTNdata.LDHapMap.rel27", snpop="all", verbose=TRUE){
-    
-    if(reldata %in% .packages(all.available=TRUE) ){
-      require(reldata, character.only=TRUE)
-    } else {
-      stop(paste("Please, in order to build an AVS the '", reldata,"' package should be installed!", sep=""))
-    }
-    
-    ##-----check input arguments
-    tnai.checks(name="nrand",para=nrand)
-    tnai.checks(name="mergeColinked",para=mergeColinked)
-    tnai.checks(name="reldata",para=reldata)
-    tnai.checks(name="verbose",para=verbose)
-    snpop<-tnai.checks(name="snpop",para=snpop)
-    spflag<-ifelse(is.data.frame(snpop),"custom",snpop)
-    object@para$avs<-list(nrand=nrand,reldata=reldata,snpop=spflag)
-    object@summary$para$avs[1,]<-c(nrand,reldata,spflag)
-    object@summary$markers[,"input"]<-length(object@markers)
-    object@validatedMarkers<-validateMarkers(object@validatedMarkers)
-    object@summary$markers[,"valid"]<-nrow(object@validatedMarkers)
-    if(nrow(object@validatedMarkers)<3)stop("not enough valid rs# markers!")
-    
-    #---sort markers by chrom position
-    object@validatedMarkers<-sortPosition(object@validatedMarkers)
-    
-    #---build AVS
-    variantSet<-buildAVS(object@validatedMarkers, reldata=reldata, verbose=verbose)
-    if(verbose)cat("\n")
-    
-    #---check co-linked AVS
-    if(mergeColinked){
-      if(verbose)cat("Checking co-linked markers in the AVS...\n")
-      variantSet<-check.colinked(variantSet, verbose=verbose)
-      mkrs<-getMarkers.vset(variantSet,getlinked=FALSE)
-      object@validatedMarkers<-object@validatedMarkers[mkrs,,drop=FALSE]
-      object@summary$markers[,"colinked.removed"]<-nrow(object@validatedMarkers)
-      if(verbose)cat("\n")
-    }
-    
-    #---build random AVS
-    randomSet<-buildRandomAVS(variantSet, nrand=nrand, reldata=reldata, snpop=snpop, verbose=verbose)
-    
-    #get IRanges
-    if(verbose)cat("-Mapping AVS to ranges of integer values...\n")
-    object@variantSet<-getAvsRanges(variantSet)
-    object@randomSet<-getRandomAvsRanges(randomSet, verbose=verbose)
-    
-    ##-----update status and return results
-    object@status["Preprocess"] <- "[x]"
-    return(object)
-  }
-)
 
 ##------------------------------------------------------------------------------
 ##pre-processing
@@ -108,11 +51,11 @@ setMethod(
   "AVS",
   function(object, annotation, maxgap=0, pValueCutoff=0.05, boxcox=TRUE, 
            lab="annotation", glist=NULL, minSize=100, verbose=TRUE){
-    if(object@status["Preprocess"]!="[x]")stop("NOTE: input data need preprocessing!")
+    if(object@status["Preprocess"]!="[x]")stop("NOTE: input data need preprocessing!",call.=FALSE)
     
     #---initial checks
     if(ncol(annotation)<3 && !is.null(glist)){
-      stop("'annotation' input should also provide the IDs available the 'glist'! ")
+      stop("'annotation' input should also provide the IDs available the 'glist'! ",call.=FALSE)
     }
     annotation<-tnai.checks(name="annotation.vse",para=annotation)
     tnai.checks(name="maxgap",para=maxgap)
@@ -124,6 +67,7 @@ setMethod(
     tnai.checks(name="verbose",para=verbose)
     object@summary$para$vse[1,]<-c(maxgap,pValueCutoff,NA)
     object@para$vse<-list(maxgap=maxgap,pValueCutoff=pValueCutoff,pAdjustMethod="bonferroni")
+    maxgap <- maxgap*1000 #set to bp
     
     #---check glist agreement with annotation
     if(!is.null(glist)){
@@ -134,17 +78,17 @@ setMethod(
       if(agreement<90){
         idiff<-round(100-agreement,digits=1)
         tp<-paste("NOTE: ",idiff,"% of the ids in 'glist' are not represented in the 'annotation' dataset!",sep="")
-        warning(tp)
+        warning(tp,call.=FALSE)
       } else if(agreement<50){
         idiff<-round(100-agreement,digits=1)
         tp<-paste("NOTE: ",idiff,"% of the ids in 'glist' are not represented in the 'annotation' dataset!",sep="")
-        stop(tp)
+        stop(tp,call.=FALSE)
       }
       glist<-lapply(glist,intersect,y=annotation$ID)
       gsz<-unlist(lapply(glist,length))
       glist<-glist[gsz>minSize]
       if(length(glist)==0){
-        stop("NOTE: no gene set > 'minSize' in the 'glist'!")
+        stop("NOTE: no gene set > 'minSize' in the 'glist'!",call.=FALSE)
       }
       #map names to integer values
       annot<-data.table(aid=annotation$ID,ord=1:nrow(annotation))
@@ -203,10 +147,10 @@ setMethod(
 setMethod(
   "avs.evse",
   "AVS",
-  function(object, annotation, gxdata, snpdata, maxgap=250000, pValueCutoff=0.05, 
+  function(object, annotation, gxdata, snpdata, maxgap=250, pValueCutoff=0.05, 
            boxcox=TRUE, lab="annotation", glist=NULL, minSize=100, fineMapping=TRUE,
            verbose=TRUE){
-    if(object@status["Preprocess"]!="[x]")stop("NOTE: input data need preprocessing!")
+    if(object@status["Preprocess"]!="[x]")stop("NOTE: input data need preprocessing!",call.=FALSE)
     
     #---initial checks
     annotation<-tnai.checks(name="annotation.evse",para=annotation)
@@ -221,20 +165,21 @@ setMethod(
     tnai.checks(name="verbose",para=verbose)
     object@summary$para$evse[1,]<-c(maxgap,pValueCutoff,NA)
     object@para$evse<-list(maxgap=maxgap,pValueCutoff=pValueCutoff,pAdjustMethod="bonferroni")
-      
-    #---check annotation agreement with gxdata
-    if(verbose)cat("-Checking agreement between 'annotation' and 'gxdata' datasets... ")
-    agreement<-sum(annotation$ID%in%rownames(gxdata))
-    agreement<-agreement/nrow(annotation)*100
+    maxgap <- maxgap*1000 #set to bp
+    
+    #---check gxdata agreement with annotation
+    if(verbose)cat("-Checking agreement between 'gxdata' and 'annotation' datasets... ")
+    agreement<-sum(rownames(gxdata)%in%annotation$ID)
+    agreement<-agreement/nrow(gxdata)*100
     if(verbose)cat(paste(round(agreement,digits=1),"% !\n",sep=""))
     if(agreement<90){
       idiff<-round(100-agreement,digits=1)
-      tp<-paste("NOTE: ",idiff,"% of the ids in 'annotation' are not represented in the 'gxdata' dataset!",sep="")
-      warning(tp)
+      tp<-paste("NOTE: ",idiff,"% of the ids in 'gxdata' are not represented in the 'annotation' dataset!",sep="")
+      warning(tp,call.=FALSE)
     } else if(agreement<50){
       idiff<-round(100-agreement,digits=1)
-      tp<-paste("NOTE: ",idiff,"% of the ids in 'annotation' are not represented in the 'gxdata' dataset!",sep="")
-      stop(tp)
+      tp<-paste("NOTE: ",idiff,"% of the ids in 'gxdata' are not represented in the 'annotation' dataset!",sep="")
+      stop(tp,call.=FALSE)
     }
     annotation<-annotation[annotation$ID%in%rownames(gxdata),,drop=FALSE]
     
@@ -243,21 +188,21 @@ setMethod(
       gnames<-unique(unlist(glist))
       if(verbose)cat("-Checking agreement between 'glist' and 'annotation' datasets...  ")
       agreement<-sum(gnames%in%annotation$ID)/length(gnames)*100
-      if(verbose)cat(paste(round(agreement,digits=1),"% !\n\n",sep=""))
+      if(verbose)cat(paste(round(agreement,digits=1),"% !\n",sep=""))
       if(agreement<90){
         idiff<-round(100-agreement,digits=1)
         tp<-paste("NOTE: ",idiff,"% of the ids in 'glist' are not represented in the 'annotation' dataset!",sep="")
-        warning(tp)
+        warning(tp,call.=FALSE)
       } else if(agreement<50){
         idiff<-round(100-agreement,digits=1)
         tp<-paste("NOTE: ",idiff,"% of the ids in 'glist' are not represented in the 'annotation' dataset!",sep="")
-        stop(tp)
+        stop(tp,call.=FALSE)
       }
       glist<-lapply(glist,intersect,y=annotation$ID)
       gsz<-unlist(lapply(glist,length))
       glist<-glist[gsz>minSize[1]]
       if(length(glist)==0){
-        stop("NOTE: no gene set > 'minSize' in the 'glist'!")
+        stop("NOTE: no gene set > 'minSize' in the 'glist'!",call.=FALSE)
       }
       ##if not fine mapping, get a proxy for the nulls with pre-predefined sizes
       if(!fineMapping){
@@ -302,6 +247,26 @@ setMethod(
     }
     idx<-match(colnames(snpdata),colnames(gxdata))
     gxdata<-gxdata[,idx]
+    
+    #---check avs agreement with snpdata
+    if(verbose)cat("-Checking agreement between 'AVS' and 'snpdata' datasets...  ")
+    rMarkers <- avs.get(object,what="randomMarkers")
+    lMarkers <- avs.get(object,what="linkedMarkers")
+    allMarkers <- unique(c(lMarkers,rMarkers))
+    agreement<-sum(allMarkers%in%rownames(snpdata))/length(allMarkers)*100
+    if(verbose)cat(paste(round(agreement,digits=1),"% !\n\n",sep=""))
+    if(agreement<50){
+      idiff<-round(100-agreement,digits=1)
+      tp1 <- paste("NOTE: ",idiff,"% of the SNPs in the 'AVS' are not represented in the 'snpdata'!\n",sep="")
+      tp2 <- "Although the ideal case would be a perfect matching, it is common\n"
+      tp3 <- "to see large GWAS studies interrogating a fraction of the annotated\n"
+      tp4 <- "variation. So, given that the 'AVS' object might represent all\n"
+      tp5 <- "annotated variation (e.g. the randon sets come from a SNP population),\n"
+      tp6 <- "it is expected a certain level of underepresation for the 'snpdata'.\n"
+      tp7 <- "Please carefully evaluate whether this number is acceptable for\n"
+      tp8 <- "your study."
+      warning(tp1,tp2,tp3,tp4,tp5,tp6,tp7,tp8,call.=FALSE)
+    }
     vSet<-object@variantSet
     rSet<-object@randomSet
     
@@ -339,7 +304,7 @@ setMethod(
         #---check and save
         mtally<-names(evse$mtally[evse$mtally])
         bl<-all(unique(eqtls$RiskSNP)%in%mtally)
-        if(!bl){warning("...mismatched 'mtally' counts for ", lab)}
+        if(!bl){warning("...mismatched 'mtally' counts for ", lab,call.=FALSE)}
         evse$eqtls<-eqtls
         object@results$evse[[lab]]<<-evse
         return(NULL)

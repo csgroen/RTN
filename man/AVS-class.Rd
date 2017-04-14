@@ -2,7 +2,6 @@
 \Rdversion{1.1}
 \docType{class}
 \alias{AVS-class}
-\alias{avs.preprocess,AVS-method}
 \alias{avs.vse,AVS-method}
 \alias{avs.evse,AVS-method}
 \alias{avs.get,AVS-method}
@@ -50,7 +49,6 @@ Objects can be created by calls of the form \code{new("AVS", markers)}.
 
 \section{Methods}{
   \describe{
-    \item{avs.preprocess}{\code{signature(object = "AVS")}: see \code{\link[RTN:avs.preprocess]{avs.preprocess}} } 
     \item{avs.vse}{\code{signature(object = "AVS")}: see \code{\link[RTN:avs.vse]{avs.vse}} } 
     \item{avs.evse}{\code{signature(object = "AVS")}: see \code{\link[RTN:avs.evse]{avs.evse}} }
     \item{avs.get}{\code{signature(object = "AVS")}: see \code{\link[RTN:avs.get]{avs.get}} }    
@@ -69,7 +67,7 @@ Mauro Castro
 
 \dontrun{
 #This example requires the RTNdata package! (currently available under request)
-library(RTNdata.LDHapMap.rel27)
+library(RTNdata.LDHapMapRel27)
 data(bcarisk) #mapped to the same genome build of the RTNdata!
 avs <- new("AVS", markers=bcarisk)
 }

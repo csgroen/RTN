@@ -12,7 +12,7 @@ This function takes a TNA object and plots the one-tailed GSEA results for indiv
 \usage{
 tna.plot.gsea1(object, labPheno="tna", file=labPheno, filepath=".", regulon.order="size", 
 ntop=NULL, tfs=NULL, ylimPanels=c(0.0,3.5,0.0,0.8), heightPanels=c(1,1,3), 
-width=5, height=4, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
+width=4.4, height=4, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
 xlab="Position in the ranked list of genes", alpha=0.5, 
 sparsity=10, autoformat=TRUE, ...)
 }

@@ -584,6 +584,7 @@ gseaScores4RTN <- function(geneList, geneSet, exponent=1, mode="score") {
     geneSetType<-geneSet
     geneSet<-names(geneSet)
   }
+  geneList <- geneList[!is.na(geneList)]
   ##the geneSet should be a subset of the gene universe, i.e. we keep 
   ##only those element of the gene set that appear in the geneList		
   geneSet<-intersect(names(geneList), geneSet)
@@ -606,7 +607,7 @@ gseaScores4RTN <- function(geneList, geneSet, exponent=1, mode="score") {
     ##compute the positions of the hits in the geneList (0 if there 
     ##is no match, 1 if there is a match)	
     hits[which(!is.na(match(names(geneList), geneSet)))] <- TRUE
-    ##same as hits, but including mode information is available
+    ##same as hits, but including mode information if available
     hitsType[which(!is.na(match(names(geneList), names(geneSetType[geneSetType>0]))))] <-  1
     hitsType[which(!is.na(match(names(geneList), names(geneSetType[geneSetType<0]))))] <- -1
     ##if sum(hits)=0 then there is no match between geneList and 
@@ -632,6 +633,8 @@ gseaScores4RTN <- function(geneList, geneSet, exponent=1, mode="score") {
   if(mode=="score"){
     return(ES)
   } else if(mode=="graph"){
+    #for a hit at extreme position, set score to zero to avoid misleading the subsequent plot.  
+    runningES[1] <- 0; runningES[length(runningES)] <- 0
     return(list("enrichmentScore"=ES, "runningScore"=runningES, "positions"=hitsType))
   }
 }

@@ -10,7 +10,7 @@ tnai.checks <- function(name, para) {
   }
   else if(name=="tna.what"){
     opts<-c("tnet","tfs","pheno","regulons","refregulons","para","mra","gsea1","gsea2","overlap","synergy","shadow","summary","status",
-            "regulons.and.pheno","refregulons.and.pheno","regulons.and.mode","refregulons.and.mode")
+            "regulons.and.pheno","refregulons.and.pheno","regulons.and.mode","refregulons.and.mode","nondpiregulons.and.mode")
     if(!is.character(para) || length(para)!=1 || !(para %in% opts))
       stop(paste("'what' should be any one of the options: \n", paste(opts,collapse = ", ") ),call.=FALSE )
   }
@@ -32,55 +32,9 @@ tnai.checks <- function(name, para) {
       stop(paste("'avs.plot.what' should be any one of the options: \n", paste(opts,collapse = ", ") ),call.=FALSE )
   }
   else if(name=="reldata"){
-    opts<-c("RTNdata.LDrel27","RTNdata.LDHapMap.rel27","RTNdata.LD1000g.rel20130502")
+    opts<-c("RTNdata.LDrel27","RTNdata.LDHapMapRel27","RTNdata.LD1000gRel20130502")
     if(!is.character(para) || length(para)!=1 || !(para %in% opts))
       stop(paste("available 'reldata':", paste(opts,collapse = ", ") ),call.=FALSE)
-  }
-  else if(name=="snpop"){
-    if(is.character(para)){
-      opts<-c("all","ld")
-      if(length(para)!=1 || !(para %in% opts))
-        stop(paste("available 'snpop' options:", paste(opts,collapse = ", ") ),call.=FALSE)
-    } else if(is.data.frame(para)){
-      if(ncol(para)<4 ){
-        stop("'snpop' should be a dataframe, a 'BED file' format with ncol >= 4 !",call.=FALSE)
-      }
-      para<-para[,1:4]
-      b1 <- !is.numeric(para[,2]) || !is.integer(para[,2])
-      b2 <- !is.numeric(para[,3]) || !is.integer(para[,3])
-      if(b1 || b2){
-        stop("'snpop' should have a 'BED file' format, with chromosomal positions as numerical or integer values!",call.=FALSE)
-      }
-      colnames(para)<-c("chrom","start","end","rsid")
-      para$chrom<-as.character(para$chrom)
-      para$rsid<-as.character(para$rsid)
-      para<-validateMarkers(para)
-      idx<-base::duplicated(para$rsid)
-      para<-para[!idx,]
-      rownames(para)<-para$rsid
-      para<-para[,c("rsid","chrom","position")]
-    } else {
-      stop("'snpop' should be a dataframe, a 'BED file' format with ncol >= 4 !",call.=FALSE)
-    }
-    return(para)
-  } 
-  else if(name=="markers") {
-    if( !is.data.frame(para) || ncol(para)<4 ){
-      stop("'markers' should be a dataframe, a 'BED file' format with ncol >= 4 !",call.=FALSE)
-    }
-    para<-para[,1:4]
-    b1 <- !is.numeric(para[,2]) || !is.integer(para[,2])
-    b2 <- !is.numeric(para[,3]) || !is.integer(para[,3])
-    if(b1 || b2){
-      stop("'markers' should have a 'BED file' format, with chromosomal positions as numerical or integer values!",call.=FALSE)
-    }
-    colnames(para)<-c("chrom","start","end","rsid")
-    para$chrom<-as.character(para$chrom)
-    para$rsid<-as.character(para$rsid)
-    #---
-    b1<-length(grep( "^rs[0-9]+$", para$rsid))!=length(para$rsid)
-    if ( b1 )stop("all items should be provided as valid makers, prefixed with 'rs' (e.g. rs10490113)!")
-    return(para)
   }
   else if(name=="tni.gtype"){
     opts<-c("rmap","amap","amapDend","mmap","mmapDetailed")
@@ -152,8 +106,8 @@ tnai.checks <- function(name, para) {
       stop("'tnet' should be any one of 'dpi' and 'ref'!",call.=FALSE)
   }  
   else if(name=="gsea.tnet"){
-    if(!is.character(para) || length(para)!=1 || !(para %in% c("dpi","ref","cdt")))
-      stop("'tnet' should be any one of 'dpi', 'ref' and 'cdt'!",call.=FALSE)
+    if(!is.character(para) || length(para)!=1 || !(para %in% c("dpi","ref","cdt","nondpi")))
+      stop("'tnet' should be any one of 'dpi', 'ref', 'cdt', and 'nondpi'!",call.=FALSE)
   }
   else if(name=="TNI"){
     if(!class(para)=="TNI")
@@ -292,7 +246,7 @@ tnai.checks <- function(name, para) {
   }
   else if(name=="pValueCutoff") {
     if(!(is.integer(para) || is.numeric(para)) || length(para)!=1 || para>1 || para<0)
-      stop("'pValueCutoff' should be an integer or numeric value <=1 and >=0 !",call.=FALSE)
+      stop("'pValueCutoff' should be an integer or numeric value >=0 and <=1  !",call.=FALSE)
   }
   else if(name=="miThreshold") {
     if(is.character(para)){
@@ -314,10 +268,6 @@ tnai.checks <- function(name, para) {
   else if(name=="nPermutations") {
     if(!(is.integer(para) || is.numeric(para)) || length(para)!=1 || para<1 || round(para,0)!=para)
       stop("'nPermutations' should be an integer >=1 !",call.=FALSE)
-  }
-  else if(name=="nrand") {
-    if(!(is.integer(para) || is.numeric(para)) || length(para)!=1 || para<1 || round(para,0)!=para)
-      stop("'nrand' should be an integer >=1 !",call.=FALSE)
   }
   else if(name=="parChunks") {
     if(!(is.integer(para) || is.numeric(para)) || length(para)!=1 || para<2 || round(para,0)!=para)
@@ -394,10 +344,6 @@ tnai.checks <- function(name, para) {
   else if(name=="boxcox") {
     if(!is.logical(para) || length(para)!=1)
       stop("'boxcox' should be a logical value!",call.=FALSE)
-  }
-  else if(name=="mergeColinked") {
-    if(!is.logical(para) || length(para)!=1)
-      stop("'mergeColinked' should be a logical value!",call.=FALSE)
   }
   else if(name=="tnet") {
     if(!is.character(para) || length(para)!=1 || !(para %in% c("dpi", "ref")))
@@ -485,16 +431,21 @@ tnai.checks <- function(name, para) {
     #---
     para$ID<-as.character(para$ID)
     para$CHROM<-as.character(para$CHROM)
+    if(is.numeric(para$CHROM) || is.integer(para$CHROM)){
+      para$CHROM <- paste("chr",para$CHROM,sep="")
+    }
     chrs<-c(paste("chr",1:22,sep=""),"chrX","chrY")
     chrChecks<-!para$CHROM%in%chrs
     if( any(chrChecks) ){
       n<-sum(chrChecks)/length(chrChecks)
-      tp1<-paste("chromosome values in 'annotation' should be listed in ", sep="")
+      tp1<-paste("chromosome names in 'annotation' should be listed in ", sep="")
       tp2<-"[chr1, chr2, chr3, ..., chr22, chrX]!"
       if(n>0.95){
         stop(tp1,tp2,call.=FALSE)
       } else {
-        nonvalid<-paste(unique(para$CHROM[chrChecks]),collapse=", ")
+        nonvalid <- unique(para$CHROM[chrChecks])
+        if(length(nonvalid)>1) nonvalid <- c(nonvalid[1],"...",nonvalid[length(nonvalid)])
+        nonvalid <- paste(nonvalid,collapse=", ")
         tp3<-"\n...the following values were removed: "
         warning(tp1,tp2,tp3,nonvalid,call.=FALSE)
         para<-para[!chrChecks,]
@@ -543,6 +494,9 @@ tnai.checks <- function(name, para) {
     #---
     para$ID<-as.character(para$ID)
     para$CHROM<-as.character(para$CHROM)
+    if(is.numeric(para$CHROM) || is.integer(para$CHROM)){
+      para$CHROM <- paste("chr",para$CHROM,sep="")
+    }
     chrs<-c(paste("chr",1:22,sep=""),"chrX","chrY")
     chrChecks<-!para$CHROM%in%chrs
     if( any(chrChecks) ){
@@ -552,7 +506,9 @@ tnai.checks <- function(name, para) {
       if(n>0.95){
         stop(tp1,tp2,call.=FALSE)
       } else {
-        nonvalid<-paste(unique(para$CHROM[chrChecks]),collapse=", ")
+        nonvalid <- unique(para$CHROM[chrChecks])
+        if(length(nonvalid)>1) nonvalid <- c(nonvalid[1],"...",nonvalid[length(nonvalid)])
+        nonvalid <- paste(nonvalid,collapse=", ")
         tp3<-"\n...the following values were removed: "
         warning(tp1,tp2,tp3,nonvalid,call.=FALSE)
         para<-para[!chrChecks,]

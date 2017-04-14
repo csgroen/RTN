@@ -1,59 +1,43 @@
 %\VignetteIndexEntry{Main vignette: reconstruction and analysis of transcriptional networks in R}
 %\VignetteKeywords{Reconstruction and analysis of transcriptional networks in R}
 %\VignettePackage{RTN}
+%\VignetteEngine{utils::Sweave}
 
-\documentclass[11pt]{article}
-\usepackage{Sweave,fullpage}
-\usepackage{float}
-\SweaveOpts{keep.source=TRUE,eps=FALSE,width=4,height=4.5}
-\newcommand{\Robject}[1]{\texttt{#1}}
-\newcommand{\Rpackage}[1]{\textit{#1}}
-\newcommand{\Rfunction}[1]{\textit{#1}}
-\usepackage{subfig}
-\usepackage{color}
-\usepackage{hyperref}
-\definecolor{linkcolor}{rgb}{0.0,0.0,0.75}
-\hypersetup{colorlinks=true, linkcolor=linkcolor, urlcolor=cyan}
-\bibliographystyle{unsrt}
+\documentclass{article}
 
-%--------------------------------------------
-%--------------------------------------------
-%--------------------------------------------
+<<style, eval=TRUE, echo=FALSE, results=tex>>=
+BiocStyle::latex()
+@ 
 
-\title{
-Vignette for \emph{RTN}: reconstruction of transcriptional networks \\ 
-and analysis of master regulators.
+\newcommand{\exitem}[3]{%
+  \item \texttt{\textbackslash#1\{#2\}} #3 \csname#1\endcsname{#2}.%
 }
+
+\usepackage{hyperref} 
+
+%\bioctitle[Short title for headers]{Full title for title page}
+\bioctitle[RTN: reconstruction of transcriptional networks]{
+Vignette for \emph{RTN}: reconstruction of transcriptional networks \\
+and analysis of master regulators.}
+
 \author{
 Mauro AA Castro, Xin Wang, Michael NC Fletcher, \\
 Florian Markowetz and Kerstin B Meyer 
-\thanks{Cancer Research UK - Cambridge Research Institute, Robinson Way Cambridge, CB2 0RE, UK.} \\
-\texttt{\small kerstin.meyer@cancer.org.uk} \\
+\thanks{Cancer Research UK - Cambridge Institute, Robinson Way Cambridge, CB2 0RE, UK.} \\
+\texttt{\small mauro.a.castro@gmail.com} \\
 }
 
 \begin{document}
+
+\SweaveOpts{concordance=TRUE}
 
 \maketitle
 
 \tableofcontents
 
-<<Ropts, echo=FALSE, results=hide>>=
-options(width=70)
-@ 
-
-%--------------------------------------------
-%--------------------------------------------
-%--------------------------------------------
-
-\newpage
-
 \section{Overview}
 
-The package \emph{RTN} is designed for reconstruction and analysis of transcriptional networks (TN) using mutual information \cite{Margolin2006a}. It is implemented by S4 classes in \emph{R} \cite{Rcore} and extends several methods previously validated for assessing transcriptional regulatory units, or regulons (\textit{e.g.} MRA \cite{Carro2010}, GSEA \cite{Subramanian2005}, synergy and shadow \cite{Lefebvre2010}). The package computes the mutual information (MI) between annotated transcription factors (TFs) and all potential targets using gene expression data. It is tuned to deal with large gene expression datasets in order to build genome-wide transcriptional networks centered on TFs and regulons. Using a robust statistical pipeline, \emph{RTN} allows user to set the stringency of the analysis in a stepwise process, including a boostrep routine designed to remove unstable associations. Parallel computing is available for critical steps demanding high-performance.
-
-%--------------------------------------------
-%--------------------------------------------
-%--------------------------------------------
+The package \Biocpkg{RTN} is designed for reconstruction and analysis of transcriptional networks (TN) using mutual information \cite{Margolin2006a}. It is implemented by S4 classes in \Rpackage{R} \cite{Rcore} and extends several methods previously validated for assessing transcriptional regulatory units, or regulons (\textit{e.g.} MRA \cite{Carro2010}, GSEA \cite{Subramanian2005}, synergy and shadow \cite{Lefebvre2010}). The package computes mutual information (MI) between annotated transcription factors (TFs) and all potential targets using gene expression data. It is tuned to deal with large gene expression datasets in order to build genome-wide transcriptional networks centered on TFs and regulons. Using a robust statistical pipeline, \Rpackage{RTN} allows user to set the stringency of the analysis in a stepwise process, including a boostrep routine designed to remove unstable associations. Parallel computing is available for critical steps demanding high-performance.
 
 \section{Quick start}
 
@@ -63,7 +47,7 @@ The package \emph{RTN} is designed for reconstruction and analysis of transcript
 
 \item 1 - Load a sample dataset
 
-The \Robject{dt4rtn} dataset consists of a list with 6 objects used for demonstration purposes only. It was extracted, pre-processed and size-reduced from \cite{Fletcher2013} and \cite{Curtis2012} and contains a named gene expression matrix (\Robject{gexp}), a data frame of with \Robject{gexp} annotation (\Robject{gexpIDs}), a named numeric vector with differential gene expression data (\Robject{pheno}), a data frame with \Robject{pheno} annotation  (\Robject{phenoIDs}), a character vector with genes differentially expressed (\Robject{hits}), and a named vector with transcriptions factors (\Robject{tfs}).
+The \Robject{dt4rtn} dataset consists of a list with 6 objects used for demonstration purposes only. It was extracted, pre-processed and size-reduced from \cite{Fletcher2013} and \cite{Curtis2012} and contains a named gene expression matrix (\Robject{gexp}), a data frame with \Robject{gexp} annotation (\Robject{gexpIDs}), a named numeric vector with differential gene expression data (\Robject{pheno}), a data frame with \Robject{pheno} annotation  (\Robject{phenoIDs}), a character vector with genes differentially expressed (\Robject{hits}), and a named vector with transcriptions factors (\Robject{tfs}).
 
 \begin{small}
 <<label= Load a sample dataset, eval=TRUE>>=
@@ -71,6 +55,7 @@ library(RTN)
 data(dt4rtn)
 @ 
 \end{small}
+\bigbreak
 
 \item 2 - Create a new TNI object and run pre-processing
 
@@ -82,11 +67,12 @@ Objects of class \Rfunction{TNI} provide a series of methods to do transcription
 #Input 2: 'transcriptionFactors', a named vector with TF ids (3 TFs for quick demonstration!)
 #Input 3: 'gexpIDs', an optional data frame with gene annotation (it can be used to remove duplicated genes)
 rtni <- new("TNI", gexp=dt4rtn$gexp, 
-            transcriptionFactors=dt4rtn$tfs[c("PTTG1","E2F2","FOXM1")]
+            transcriptionFactors=dt4rtn$tfs[c("PTTG1","E2F2","FOXM1","E2F3","RUNX2")]
             )
-rtni<-tni.preprocess(rtni,gexpIDs=dt4rtn$gexpIDs)
+rtni <- tni.preprocess(rtni, gexpIDs=dt4rtn$gexpIDs)
 @ 
 \end{scriptsize}
+\bigbreak
 
 \item 3 - Run permutation analysis
 
@@ -94,9 +80,10 @@ The \Rfunction{tni.permutation} function takes the pre-processed \Rfunction{TNI}
 
 \begin{small}
 <<label=Permutation , eval=TRUE, results=hide>>=
-rtni<-tni.permutation(rtni)
+rtni <- tni.permutation(rtni)
 @ 
 \end{small}
+\bigbreak
 
 \item 4 - Run bootstrap analysis
 
@@ -104,19 +91,21 @@ In an additional step, unstable interactions can be removed by bootstrap analysi
 
 \begin{small}
 <<label=Bootstrap, eval=TRUE, results=hide>>=
-rtni<-tni.bootstrap(rtni) 
+rtni <- tni.bootstrap(rtni) 
 @ 
 \end{small}
+\bigbreak
 
 \item 5 - Run DPI filter
 
-In the TN each target can be linked to multiple TFs and regulation can occur as a result of both direct (TF-target) and indirect interactions (TF-TF-target). The Data Processing Inequality (DPI) algorithm \cite{Meyer2008} is used to remove the weakest interaction in any triangle of two TFs and a target gene, thus preserving the dominant TF-target pairs, resulting in the filtered transcriptional network (referred here as \textit{tnet}). The filtered TN has less complexity and highlights the most significant interactions.
+In the TN each target can be linked to multiple TFs and regulation can occur as a result of both direct (TF-target) and indirect interactions (TF-TF-target). The Data Processing Inequality (DPI) algorithm \cite{Meyer2008} is used to remove the weakest interaction in any triangle of two TFs and a common target gene, thus preserving the dominant TF-target pairs, resulting in the filtered transcriptional network (referred here as \textit{tnet}). The filtered TN has less complexity and highlights the most significant interactions.
 
 \begin{small}
 <<label=Run DPI filter, eval=TRUE, results=hide>>=
-rtni<-tni.dpi.filter(rtni) 
+rtni <- tni.dpi.filter(rtni) 
 @ 
 \end{small}
+\bigbreak
 
 \item 6 - Get results
 
@@ -124,22 +113,22 @@ All results available in the \Rfunction{TNI} object can be retrieved using the \
 
 \begin{small}
 <<label=Check summary, eval=TRUE, results=hide>>=
-tni.get(rtni,what="summary")
-refnet<-tni.get(rtni,what="refnet")
-tnet<-tni.get(rtni,what="tnet")
+tni.get(rtni, what="summary")
+refnet <- tni.get(rtni, what="refnet")
+tnet <- tni.get(rtni, what="tnet")
 @ 
 \end{small}
+\bigbreak
 
 \item 7 - Build a graph
 
-The inferred transcriptional network can also be retrieved as an \Rfunction{igraph} \cite{igraph} object using the \Rfunction{tni.graph} function. The graph object includes some basic network attributes pre-formatted for visualization in the R package \Rpackage{RedeR} \cite{Castro2012}.
+The inferred transcriptional network can also be retrieved as an \Rfunction{igraph} \cite{igraph} object using the \Rfunction{tni.graph} function. The graph object includes some basic network attributes pre-formatted for visualization in the R package \Biocpkg{RedeR} \cite{Castro2012}.
 
 \begin{small}
 <<label=Get graph, eval=TRUE>>=
-g<-tni.graph(rtni)
+g <- tni.graph(rtni)
 @ 
 \end{small}
-
 
 \end{itemize}
 
@@ -154,46 +143,61 @@ Objects of class \Rfunction{TNA} provide a series of methods to do enrichment an
 \begin{scriptsize}
 <<label=Create a new TNA object (preprocess TNI-to-TNA), eval=TRUE, results=hide>>=
 #Input 1: 'object', a TNI object with a pre-processed transcripional network
-#Input 2: 'phenotype', a named numeric vector of phenotypes
+#Input 2: 'phenotype', a named numeric vector, usually with log2 differential expression values
 #Input 3: 'hits', a character vector of gene ids considered as hits
 #Input 4: 'phenoIDs', an optional data frame with anottation used to aggregate genes in the phenotype
-rtna<-tni2tna.preprocess(object=rtni, 
+rtna <- tni2tna.preprocess(object=rtni, 
                          phenotype=dt4rtn$pheno, 
                          hits=dt4rtn$hits, 
                          phenoIDs=dt4rtn$phenoIDs
                          )
 @ 
 \end{scriptsize}
+\bigbreak
 
-\item 3 - Run MRA analysis pipeline
+\item 2 - Run MRA analysis pipeline
 
 The \Rfunction{tna.mra} function takes the \Rfunction{TNA} object and returns the results of the Master Regulator Analysis (RMA) \cite{Carro2010} over a list of regulons from a transcriptional network (with multiple hypothesis testing corrections). The MRA computes the overlap between the transcriptional regulatory unities (regulons) and the input signature genes using the hypergeometric distribution (with multiple hypothesis testing corrections).
 
 \begin{small}
 <<label=Run MRA analysis pipeline, eval=TRUE, results=hide>>=
-rtna<-tna.mra(rtna)
+rtna <- tna.mra(rtna)
 @ 
 \end{small}
+\bigbreak
 
-\item 4 - Run overlap analysis pipeline
+\item 3 - Run overlap analysis pipeline
 
 A simple overlap among all regulons can also be tested using the \Rfunction{tna.overlap} function:
 
 \begin{small}
 <<label=Run overlap analysis pipeline, eval=TRUE, results=hide>>=
-rtna<-tna.overlap(rtna)
+rtna <- tna.overlap(rtna)
 @ 
 \end{small}
+\bigbreak
 
-\item 5 - Run GSEA analysis pipeline
+\item 4 - Run GSEA analysis pipeline
 
 Alternatively, the gene set enrichment analysis (GSEA) can be used to assess if a given transcriptional regulatory unit is enriched for genes that are differentially expressed among 2 classes of microarrays (\textit{i.e.} a differentially expressed phenotype). The GSEA uses a rank-based scoring metric in order to test the association between gene sets and the ranked phenotypic difference. Here regulons are treated as gene sets, an extension of the GSEA statistics as previously described \cite{Subramanian2005}.
 
 \begin{small}
 <<label=Run GSEA analysis pipeline, eval=TRUE, results=hide>>=
-rtna<-tna.gsea1(rtna)
+rtna <- tna.gsea1(rtna, stepFilter=FALSE)
 @ 
 \end{small}
+\bigbreak
+
+\item 5 - Run two-tailed GSEA analysis pipeline
+
+The two-tailed GSEA tests whether positive or negative targets for a TF are enriched at each extreme of a particular response (\textit{e.g.} differentially expressed genes). The pipeline splits the regulon into a group of activated and a group of repressed genes, based on the Pearson's correlation, and then asks how the two sets are distributed in the ranked list of genes (please refer to \cite{Campbell2016} and \cite{Castro2016} for more details).
+
+\begin{small}
+<<label=Run GSEA analysis pipeline, eval=TRUE, results=hide>>=
+rtna <- tna.gsea2(rtna, tfs = "PTTG1")
+@ 
+\end{small}
+\bigbreak
 
 \item 6 - Get results
 
@@ -201,22 +205,23 @@ All results available in the \Rfunction{TNA} object can be retrieved using the \
 
 \begin{small}
 <<label=Get results, eval=TRUE, results=hide>>=
-tna.get(rtna,what="summary")
-tna.get(rtna,what="mra")
-tna.get(rtna,what="overlap")
-tna.get(rtna,what="gsea1")
+tna.get(rtna, what="summary")
+tna.get(rtna, what="mra")
+tna.get(rtna, what="overlap")
+tna.get(rtna, what="gsea1")
+tna.get(rtna, what="gsea2")
 @ 
 \end{small}
+\bigbreak
 
 \item 7 - Plot GSEA
 
-To visualize the GSEA distributions, the user can apply the \Rfunction{tna.plot.gsea1} function that plots the one-tailed GSEA results for individual regulons:
+To visualize the GSEA distributions, the user can apply the \Rfunction{tna.plot.gsea1} and \Rfunction{tna.plot.gsea2} functions that plot the one-tailed and two-tailed GSEA results, respectively:
 
 \begin{small}
 <<label=Plot GSEA, eval=TRUE, results=hide>>=
-tna.plot.gsea1(rtna, file="tna_test", width=6, height=4, 
-              heightPanels=c(1,0.7,3), 
-              ylimPanels=c(0,3.5,0,0.8)) 
+tna.plot.gsea1(rtna, file="tna_gsea1", labPheno="abs(log2) diff. expression values") 
+tna.plot.gsea2(rtna, file="tna_gsea2", labPheno="log2 diff. expression values") 
 @ 
 \end{small}
 
@@ -229,17 +234,26 @@ tna.plot.gsea1(rtna, file="tna_test", width=6, height=4,
 %%%%%%
 \begin{figure}[htbp]
 \begin{center}
-\includegraphics[width=0.85\textwidth]{tna_test.pdf}
+\includegraphics[width=0.75\textwidth]{tna_gsea1.pdf}
 \end{center}
 \label{fig1}
 \caption{GSEA analysis showing genes in each regulon (as hits) ranked by their differential expression (as phenotype). This toy example illustrates the output from the \emph{TNA} pipeline evaluated by the \emph{tna.gsea1} method.}
 \end{figure}
 
-%--------------------------------------------
-%--------------------------------------------
-%--------------------------------------------
+\newpage
 
-\clearpage
+%%%%%%
+%Fig2%
+%%%%%%
+\begin{figure}[htbp]
+\begin{center}
+\includegraphics[width=0.5\textwidth]{tna_gsea2_PTTG1.pdf}
+\end{center}
+\label{fig2}
+\caption{Two-tailed GSEA analysis showing positive or negative targets for a TF (as hits) ranked by their differential expression (as phenotype). This toy example illustrates the output from the \emph{TNA} pipeline evaluated by the \emph{tna.gsea2} method (for detailed interpretation of results from this method, please refer to \cite{Campbell2016} and \cite{Castro2016}).}
+\end{figure}
+
+
 
 \section{Session information}
 

@@ -23,7 +23,6 @@ exportMethods(
   "tna.shadow",
   "tna.get",
   "tna.graph",
-  "avs.preprocess",
   "avs.vse",
   "avs.evse",
   "avs.get",
@@ -33,6 +32,8 @@ exportMethods(
 )
 
 export(
+  "avs.preprocess.LDHapMapRel27",
+  "avs.preprocess.LD1000gRel20130502",
   "tna.plot.gsea1",
   "tna.plot.gsea2",
   "avs.plot1",
@@ -46,13 +47,14 @@ importFrom(RedeR, att.mapv, att.setv, att.sete)
 importFrom(data.table,data.table,setkey)
 importFrom(IRanges,IRanges,overlapsAny,findOverlaps,NCList,reduce)
 importFrom(ff,ff)
+importFrom(S4Vectors, from, to)
 importFrom(car,powerTransform,bcPower)
 import(igraph)
 import(methods)
 importFrom(corpcor,pcor.shrink)
 importFrom(fdrtool,fdrtool)
 importFrom(reshape2,melt)
-
+importFrom(stats, pchisq, complete.cases)
 importFrom(grDevices, col2rgb, colorRampPalette, dev.off, palette, pdf, rgb)
 importFrom(graphics, abline, axis, boxplot, hist, image, layout, legend, lines, mtext, par, plot, plot.new, points, polygon, segments, title)
 importFrom(stats, aggregate, anova, aov, as.dist, coef, cor, formula, hclust, ks.test, lm, manova, median, model.matrix, p.adjust, phyper, pnorm, qnorm, quantile, sd, shapiro.test)

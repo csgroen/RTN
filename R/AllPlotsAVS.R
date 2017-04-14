@@ -192,7 +192,7 @@ avsplot2<-function(stats,ucounts,fname="vseplot",height=2, width=14, rmargin=1,
   }
   mtext("P value\n(-log10)", side=2, line=1, cex=0.75, las=2, adj=0.5, padj=0, at=nc+1)
   #---plot 2
-  binsp <- ( 85 - length(clustersz) ) * 0.115 * rmargin
+  binsp <- length(clustersz) * 0.07 * rmargin
   par( mai = c( 0.4, 0.0, 1.5, 0.7 + binsp ) )
   mat.tally<-mtally
   mat.tally[,]<-as.numeric(mtally)

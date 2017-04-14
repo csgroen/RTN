@@ -71,15 +71,12 @@ setGeneric("tna.get",
            function(object, what="summary", order=TRUE, ntop=NULL, reportNames=TRUE, idkey=NULL) 
              standardGeneric("tna.get"), package="RTN")
 ##-------------------------------------------------------------------------
-setGeneric("avs.preprocess",
-           function(object, nrand=1000, mergeColinked=TRUE, reldata="RTNdata.LDHapMap.rel27", snpop="all", verbose=TRUE)
-             standardGeneric("avs.preprocess"), package="RTN")
 setGeneric("avs.vse",
            function(object, annotation, maxgap=0, pValueCutoff=0.05, boxcox=TRUE, 
                     lab="annotation", glist=NULL, minSize=100, verbose=TRUE)
              standardGeneric("avs.vse"), package="RTN")
 setGeneric("avs.evse",
-           function(object, annotation, gxdata, snpdata, maxgap=250000, pValueCutoff=0.05, 
+           function(object, annotation, gxdata, snpdata, maxgap=250, pValueCutoff=0.05, 
                     boxcox=TRUE, lab="annotation", glist=NULL, minSize=100, 
                     fineMapping=TRUE, verbose=TRUE)
              standardGeneric("avs.evse"), package="RTN")

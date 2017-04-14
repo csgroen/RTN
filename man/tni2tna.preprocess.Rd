@@ -19,8 +19,7 @@ a processed object of class 'TNI' \code{\link[RTN:TNI-class]{TNI-class}} evaluat
 and \code{\link[RTN:tni.dpi.filter]{tni.dpi.filter}}.
 }
 \item{phenotype}{
-a numeric or integer vector of phenotypes named by gene identifiers. 
-Required for gsea, synergy and shadow methods (see \code{\link[RTN:tna.gsea1]{tna.gsea1}}).
+a numeric vector of phenotypes named by gene identifiers (usually log2 differential expression values). Required for gsea, synergy and shadow methods (see \code{\link[RTN:tna.gsea1]{tna.gsea1}}).
 }
 \item{hits}{
 a character vector of gene identifiers for those considered as hits.

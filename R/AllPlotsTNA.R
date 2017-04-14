@@ -6,7 +6,7 @@
 ##Plot enrichment analysis from TNA objects.
 tna.plot.gsea1<-function(object,  labPheno="tna", file=labPheno, filepath=".", regulon.order="size", 
                          ntop=NULL, tfs=NULL, ylimPanels=c(0.0,3.5,0.0,0.8), heightPanels=c(1,1,3), 
-                         width=5, height=4, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
+                         width=4.4, height=4, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
                          xlab="Position in the ranked list of genes", alpha=0.5, sparsity=10, 
                          autoformat=TRUE, ...) {
   #checks
@@ -195,7 +195,7 @@ gsplot1 <- function(runningScore, enrichmentScore, positions, adjpv,
   ht<-ht[ht>0]
   layout(matrix(1:np, np, 1, byrow=TRUE), heights=ht)
   # plot1
-  par(family="Times")
+  par(family="sans")
   if(heightPanels[1]>0){
     par(mar=c(0.5, 6.5, 1.5, 1.0),mgp=c(4.5,0.5,0),tcl=-0.2)
     plot(x=c(1,max(rsc.vec[,1])),y=c(min(geneList),max(geneList)), type="n", 
@@ -203,14 +203,13 @@ gsplot1 <- function(runningScore, enrichmentScore, positions, adjpv,
     if(min(geneList)<0)abline(h=0,lwd=0.6)
     sq<-c(1:length(geneList))%%sparsity;sq[sq>1]<-0
     sq<-as.logical(sq)
-    lines(x=c(1:length(geneList))[sq],y=geneList[sq],col="grey75",lwd=1.2)
-    nn=ifelse(min(geneList)<0,4,3)
+    lines(x=c(1:length(geneList))[sq],y=geneList[sq],col="grey75",lwd=1.4)
+    nn=ifelse(min(geneList)<0,4,2)
     pp<-pretty(c(geneList,ylimPanels[1:2]),n=nn)
-    axis(2,line=0, cex.axis=cexlev[2], las=2, at=pp, labels=pp,...=...)
-    #box(lwd=0.8)
+    axis(2,line=0, cex.axis=cexlev[2], las=2, at=pp, lwd=1.2, labels=pp,...=...)
     if(!is.null(labPheno)){
       legend("topright", legend=labPheno, col="grey75", pch="---", 
-             bty="n",cex=cexlev[3], pt.cex=1.2, ...=...)   	
+             bty="n",cex=cexlev[3], pt.cex=1.5, ...=...)   	
     }
   }
   #-------------------------------------------------
@@ -225,8 +224,7 @@ gsplot1 <- function(runningScore, enrichmentScore, positions, adjpv,
       yy<-rsc.vec[idx,2]
       segments(xx,yy-0.9,xx, yy-0.1, col=rev(rsc.colors)[i],lwd=0.2)
     }
-    axis(2,las=2, at=c(1:ng)-0.5,labels=rev(labels), line=0, cex.axis=cexlev[5], ...=...)
-    #box(lwd=0.8)
+    axis(2,las=2, at=c(1:ng)-0.5,labels=rev(labels), line=0, cex.axis=cexlev[5],lwd=1.2 , ...=...)
   }
   #-------------------------------------------------
   # plot3
@@ -238,7 +236,7 @@ gsplot1 <- function(runningScore, enrichmentScore, positions, adjpv,
          ylim=ylimPanels[c(3,4)],ylab=ylabPanels[3], cex.lab=cexlev[1], ...=...)
     par(mgp=c(3.0,0.5,0))
     title(xlab=xlab, cex.lab=cexlev[1], ...=...)
-    if(min(cc)<0)abline(h=0,lwd=0.6)
+    if(min(cc)<0)abline(h=0,lwd=1.2)
     for(i in 1:ng){
       yy<-cc[,i]
       xx<-c(1:nrow(cc))
@@ -252,9 +250,8 @@ gsplot1 <- function(runningScore, enrichmentScore, positions, adjpv,
       sq<-as.logical(sq)
       lines(x=xx[sq],y=yy[sq],col=rsc.colors[i],lwd=0.7)
     }
-    axis(1,cex.axis=cexlev[2], ...=...)
-    axis(2,las=2,cex.axis=cexlev[2], ...=...)
-    #box(lwd=0.8)
+    axis(1,cex.axis=cexlev[2], lwd=1.2, ...=...)
+    axis(2,las=2,cex.axis=cexlev[2], lwd=1.2, ...=...)
     labels<-paste(labels," (adj.p ",format(adjpv,scientific=TRUE,digits=2),")",sep="")
     #labels=sub("=","<",labels)
     legend("topright", legend=labels, col=rsc.colors, pch="---", bty="n",cex=cexlev[4], 
@@ -313,6 +310,8 @@ tna.plot.gsea2<-function(object, labPheno="tna", file=labPheno, filepath=".", re
     if(ylabPanels[2]=="Regulon")ylabPanels[2]<-"Modulators"
   } else if(object@para$gsea2$tnet=="ref"){
     rgcs<-tna.get(object,what="refregulons.and.mode")
+  } else if(object@para$gsea2$tnet=="nondpi"){
+    rgcs<-tna.get(object,what="nondpiregulons.and.mode")
   } else {
     rgcs<-tna.get(object,what="regulons.and.mode")
   }
@@ -483,7 +482,7 @@ gsplot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enrichm
   ht<-ht[ht>0]
   layout(matrix(1:np, np, 1, byrow=TRUE), heights=ht)
   # plot1
-  par(family="Times")
+  par(family="sans")
   if(heightPanels[1]>0){
     xlim<-c(0,length(geneList))
     nn<-ifelse(min(geneList)<0,4,3)
@@ -493,7 +492,7 @@ gsplot2 <- function(runningScoreUp, enrichmentScoreUp, runningScoreDown, enrichm
     } else {
       ylim<-ylimPanels[1:2]
     }
-    par(mar=c(0.0, 5.0, 1.5, 1.5),mgp=c(2.2,0.6,0),tcl=-0.2,family="Times")
+    par(mar=c(0.1, 5.0, 1.5, 1.5),mgp=c(2.2,0.6,0),tcl=-0.2,family="sans")
     plot(x=c(1,max(rsc.vec[,1])),y=c(min(geneList),max(geneList)), type="n", 
          axes= FALSE,xlab="", ylab=ylabPanels[1], cex.lab=cexlev[1], ylim=ylim,xlim=xlim, ...=...)
     if(min(geneList)<0)abline(h=0,lwd=1.1)    #segments(0, 0, length(geneList), 0,col="grey70")

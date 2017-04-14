@@ -2,7 +2,7 @@
 \alias{tni.bootstrap}
 
 \title{
-Inference of transcriptional networks.
+Inference of consensus transcriptional networks.
 }
 
 \description{

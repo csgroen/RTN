@@ -4,6 +4,7 @@
 
 \section{Version 1.14.0}{
   \itemize{
+    \item Concluded the VSE/EVSE pipeline, including examples.
     \item Improved computational performance and RTN workflows.
     \item Introduced partial correlation metric to derive regulons.
   }

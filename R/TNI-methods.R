@@ -142,7 +142,7 @@ setMethod(
     rownames(dt)<-1:nrow(dt)
     
     #------
-    if(verbose) cat("Comuting two-tailed GSEA for",length(listOfRegulonsAndMode),"regulon(s) and",length(samples),'sample(s)!\n')
+    if(verbose) cat("Computing two-tailed GSEA for",length(listOfRegulonsAndMode),"regulon(s) and",length(samples),'sample(s)!\n')
     if(verbose) pb <- txtProgressBar(style=3)
     EScores<-list()
     for(i in 1:length(samples)){
@@ -1138,6 +1138,8 @@ setMethod(
       #compute mi on both tails
       milow<-tni.pmin(gxtemp[,lw],tfs,estimator=object@para$perm$estimator)
       mihigh<-tni.pmin(gxtemp[,hg],tfs,estimator=object@para$perm$estimator)
+      milow[is.na(milow)]<-0
+      mihigh[is.na(mihigh)]<-0
       #get mi delta
       miDelta<-mihigh-milow
       #identify modulations above mi threshold

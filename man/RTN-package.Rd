@@ -48,7 +48,8 @@ LazyLoad: \tab yes\cr
 \link[RTN:tna.plot.gsea1]{tna.plot.gsea1}: \tab plot results from the one-tailed GSEA.\cr
 \link[RTN:tna.plot.gsea2]{tna.plot.gsea2}: \tab plot results from the two-tailed GSEA.\cr
 \link[RTN:AVS-class]{AVS-class}: \tab an S4 class to do enrichment analyses in associated variant sets (AVSs).\cr
-\link[RTN:avs.preprocess]{avs.preprocess}: \tab build associated variant sets for objects of class AVS.\cr
+\link[RTN:avs.preprocess.LDHapMapRel27]{avs.preprocess.LDHapMapRel27}: \tab constructor for associated variant sets (AVS).\cr
+\link[RTN:avs.preprocess.LD1000gRel20130502]{avs.preprocess.LD1000gRel20130502}: \tab constructor for associated variant sets (AVS).\cr
 \link[RTN:avs.vse]{avs.vse}: \tab variant set enrichment analysis.\cr
 \link[RTN:avs.evse]{avs.evse}: \tab an eQTL/VSE pipeline for variant set enrichment analysis.\cr
 \link[RTN:avs.get]{avs.get}: \tab get information from individual slots in an AVS object.\cr
@@ -67,7 +68,9 @@ Maintainer: Mauro Castro <mauro.a.castro@gmail.com>
 }
 
 \references{
-Castro, M. A. A. et al. \emph{RTN: Reconstruction and Analysis of Transcriptional Networks}. Journal Paper (in preparation), 2013.
+Fletcher M.N.C. et al., \emph{Master regulators of FGFR2 signalling and breast cancer risk.} Nature Communications, 4:2464, 2013.
+
+Castro M.A.A. et al., \emph{Regulators of genetic risk of breast cancer identified by integrative network analysis.} Nature Genetics, 48:12-21, 2016.
 }
 
 \keyword{ package }

@@ -7,23 +7,6 @@
 ##------------------------------------------------------------------------
 
 ##-------------------------------------------------------------------------
-## sort markers
-sortPosition<-function(markers){
-  #sort markers
-  chrs<-c(paste("chr",1:22,sep=""),"chrX")
-  sortmrks<-data.frame(stringsAsFactors=FALSE)
-  for(chr in chrs){
-    mrk<-markers[markers$chrom==chr,,drop=FALSE]
-    if(nrow(mrk)>0){
-      idx<-sort.list(mrk$position)
-      sortmrks<-rbind(sortmrks,mrk[idx,,drop=FALSE])
-    }
-  }
-  rownames(sortmrks)<-sortmrks$rsid
-  sortmrks
-}
-
-##-------------------------------------------------------------------------
 ## sort annotation
 sortAnnotation<-function(annotation){
   #sort annotation
@@ -38,190 +21,6 @@ sortAnnotation<-function(annotation){
   }
   rownames(sortannot)<-NULL
   sortannot
-}
-
-##-------------------------------------------------------------------------
-## build AVS
-buildAVS<-function(mysnps, reldata="RTNdata.LDHapMap.rel27", verbose=TRUE){
-  #set valid chroms
-  chrs<-c(paste("chr",1:22,sep=""),"chrX")
-  if(verbose){
-    if(reldata=="RTNdata.LDHapMap.rel27") cat("Building AVS from HapMap LD data (CEU population, release #27, NCBI-B36/hg18)...\n")
-    if(reldata=="RTNdata.LD1000g.rel20130502")cat("Building AVS from 1000 Genomes LD data (CEU population, release #20130502, GRCh37/hg19)...\n")
-  }
-  variantSet<-list()
-  for(chr in chrs){
-    snps<-mysnps[mysnps$chrom==chr,,drop=FALSE]
-    if(verbose) cat("...",nrow(snps)," marker(s) from ",chr,"!\n",sep="")
-    if(nrow(snps)>0){
-      ld_data<-getldata(chr,package=reldata)
-      marker1<-data.table(marker=ld_data$marker1,ord=1:nrow(ld_data))
-      marker2<-data.table(marker=ld_data$marker2,ord=1:nrow(ld_data))
-      setkey(marker1,'marker')
-      setkey(marker2,'marker')
-      variantSet[[chr]]<-lapply(1:nrow(snps),function(i){
-        marker<-snps$rsid[i]
-        markpos<-snps$position[i]
-        ld<-ld_data[c(marker1[marker,nomatch=0]$ord,marker2[marker,nomatch=0]$ord),]
-        if(nrow(ld)>0){
-          tp1<-ld[ld$marker2==marker,c("marker1","position1"),drop=FALSE]
-          tp2<-ld[ld$marker1==marker,c("marker2","position2"),drop=FALSE]
-          markpos<-c(markpos,tp1$position1,tp2$position2)
-          names(markpos)<-c(marker,tp1$marker1,tp2$marker2)
-          markpos<-sort(markpos)
-        } else {
-          names(markpos)<-marker  
-        }
-        markpos
-      })
-      names(variantSet[[chr]])<-snps$rsid
-    }
-  }
-  return(variantSet)
-}
-
-##-------------------------------------------------------------------------
-## Check co-linked SNP blocks
-check.colinked<-function(variantSet, verbose=TRUE){
-  variantSet<-lapply(variantSet,function(vset){
-    res<-list()
-    remove<-NULL
-    junk<-lapply(1:length(vset),function(i){
-      nm<-names(vset[i])
-      if(!nm%in%remove){
-        tp<-NULL
-        junk<-sapply(1:length(vset),function(j){
-          if( nm %in% names(vset[[j]]) ){
-            tp<<-c(tp,vset[[j]])
-          }
-        })
-        tp<-tp[!duplicated(names(tp))]
-        res[[nm]]<<-sort(tp)
-        tp<-names(tp)
-        names(tp)<-rep(nm,length(tp))
-        remove<<-c(remove,tp)
-      } else {
-        if(verbose)cat("...marker ",nm," found in cluster ",names(remove)[which(remove==nm)],"!\n",sep="")
-      }
-    })
-    res
-  })
-  return(variantSet)
-}
-
-##-------------------------------------------------------------------------
-## build random AVS
-buildRandomAVS<-function(variantSet, nrand=100, reldata="RTNdata.LDHapMap.rel27", snpop="all", verbose=TRUE){
-  
-  #set valid chroms
-  chrs<-c(paste("chr",1:22,sep=""),"chrX")
-  if(verbose){
-    if(reldata=="RTNdata.LDHapMap.rel27") cat("Building matched random AVS from HapMap LD data (CEU population, release #27, NCBI-B36/hg18)...\n")
-    if(reldata=="RTNdata.LD1000g.rel20130502")cat("Building matched random AVS from 1000 Genomes LD data (CEU population, release #20130502, GRCh37/hg19)...\n")
-  }
-  
-  #count observed clusters in the variantSet
-  clCount<-unlist(sapply(1:length(variantSet),function(i){
-    unlist(lapply(variantSet[[i]],length))
-  }))
-  ncl1<-sum(clCount==1);ncl2<-sum(clCount>1)
-  
-  #get all markers in the variantSet
-  allvset<-getMarkers.vset(variantSet,TRUE)
-  
-  #get popsnps
-  if(is.data.frame(snpop)){
-    #custom option: 'snp population' is defined by the user!
-    popsnps<-snpop[snpop$chrom%in%chrs,]
-    if(nrow(popsnps)<=(length(allvset)*2))
-      stop("NOTE: not enough valid markers in the input 'snpop'!",call.=FALSE)
-  } else {
-    #default option: pre-computed 'snp population' based on a reference dataset (eg dbSNP, HapMap, 1000g)
-    data('popsnps', package=reldata, envir=environment())
-    popsnps<-get("popsnps")
-    #corrected option: pre-computed 'snp population' is corrected to the observed LD clusters
-    if(snpop=="ld"){
-      ldpop<-getLdPop(package=reldata,verbose=verbose)
-      nm<-min(nrow(popsnps),nrow(ldpop))
-      popsnps<-popsnps[sample(nrow(popsnps),nm),]
-      ldpop<-ldpop[sample(nrow(ldpop),nm),]
-      if(ncl1>ncl2){
-        np <- ceiling(nm*(ncl1/(ncl1+ncl2)))
-        popsnps <- rbind( popsnps, ldpop[sample(nm,np), ] )
-      } else {
-        np <- ceiling(nm*(ncl2/(ncl1+ncl2)))
-        popsnps <- rbind( ldpop, popsnps[sample(nm,np), ] )
-      }
-    }
-    if(nrow(popsnps)<=(length(allvset)*2))
-      stop("NOTE: not enough RTN internal markers to build the random sets for the input data/options!",call.=FALSE)
-  }
-  
-  #remove variantSet from popsnp
-  popsnps<-popsnps[!popsnps$rsid%in%allvset,]
-  
-  #get risk markers only
-  nvset<-length(getMarkers.vset(variantSet,FALSE))
-
-  #---build randomSet -- by chroms, to speed the process
-  if(verbose) cat("Computing random sets...\n")
-  randomSet<-list()
-  for(chr in chrs){
-    if(verbose) cat("",chr,"\n",sep="")
-    ld_data<-getldata(chr,package=reldata)
-    marker1<-data.table(marker=ld_data$marker1,ord=1:nrow(ld_data)) 
-    marker2<-data.table(marker=ld_data$marker2,ord=1:nrow(ld_data))
-    setkey(marker1,'marker')
-    setkey(marker2,'marker')
-    #------------------------------------------------
-    if(verbose) pb <- txtProgressBar(style=3)
-    rSet<-lapply(1:nrand,function(i){
-      if(verbose) setTxtProgressBar(pb, i/nrand)
-      snps<-popsnps[sample.int(n=nrow(popsnps),size=nvset),]
-      snps<-snps[snps$chrom==chr,,drop=FALSE]
-      if(nrow(snps)>0){
-        rset<-list()
-        rset[[chr]]<-lapply(1:nrow(snps),function(j){
-          marker<-snps$rsid[j]
-          markpos<-snps$position[j]
-          ld<-ld_data[c(marker1[marker,nomatch=0]$ord,marker2[marker,nomatch=0]$ord),]
-          if(nrow(ld)>0){ 
-            tp1<-ld[ld$marker2==marker,c("marker1","position1"),drop=FALSE]
-            tp2<-ld[ld$marker1==marker,c("marker2","position2"),drop=FALSE]
-            linkedMarkers<-c(markpos,tp1$position1,tp2$position2)
-            names(linkedMarkers)<-c(marker,tp1$marker1,tp2$marker2)
-            linkedMarkers<-sort(linkedMarkers)
-            return(linkedMarkers)
-          } else {
-            names(markpos)<-marker
-            return(markpos)
-          }
-        })
-        names(rset[[chr]])<-snps$rsid
-      } else {
-        rset<-NA
-      }
-      return(rset)
-    })
-    if(verbose) close(pb)
-    #update randomSet
-    if(length(randomSet)==0){
-      randomSet<-rSet
-    } else {
-      junk<-sapply(1:length(randomSet),function(i){
-        randomSet[[i]]<<-c(randomSet[[i]],rSet[[i]])
-        NULL
-      })
-    }
-  }
-  #remove any chrom not selected!
-  junk<-sapply(1:length(randomSet),function(i){
-    tp<-randomSet[[i]]
-    tp<-tp[!is.na(tp)]
-    randomSet[[i]]<<-tp
-    NULL
-  })
-  return(randomSet)
 }
 
 ##------------------------------------------------------------------------
@@ -284,6 +83,7 @@ mapvset<-function(vSet,snpnames){
   }
   mdt
 }
+
 ##-------------------------------------------------------------------------
 ##map ramdom AVS to snpdate (speed-up the permutation step)
 maprset<-function(rSet,snpnames,verbose=TRUE){
@@ -310,19 +110,6 @@ maprset<-function(rSet,snpnames,verbose=TRUE){
     vSet
   })
   resrset
-}
-
-##-------------------------------------------------------------------------
-##validate rs# markers (use for both input 'markers' and eventual 'snpop')
-validateMarkers<-function(markers){
-  chrs<-c(paste("chr",1:22,sep=""),"chrX")
-  markers<-markers[markers$chrom%in%chrs,]
-  markers<-markers[!is.na(markers$chrom),]
-  markers<-markers[!is.na(markers$start),]
-  markers<-markers[!is.na(markers$end),]
-  markers<-markers[!is.na(markers$rsid),]
-  markers$position<-markers$start
-  return(markers)
 }
 
 ##-------------------------------------------------------------------------
@@ -547,9 +334,9 @@ get.eqtldist<-function(vSet,annot,gxdata,snpdata,pValueCutoff=0.01){
       geneList<-.mtdata(subject)$mappedAnnotations
       res<-sapply(1:length(query@metadata$markers),function(j){
         snpList<-.mtdata(query)$mappedMarkers[[j]]
-        ov<-overlaps@queryHits%in%which(query@metadata$index==j)
+        ov<-S4Vectors::from(overlaps)%in%which(query@metadata$index==j)
         if(any(ov) && length(snpList)>0){
-          ov<-unique(overlaps@subjectHits[ov])
+          ov<-unique(S4Vectors::to(overlaps)[ov])
           gList<-geneList[ov]
           if(length(gList)>0){
             res<-eqtlTest(geneList=as.character(gList),snpList=as.integer(snpList),gxdata,snpdata)
@@ -774,6 +561,7 @@ shtest<-function(null){
   qt<-quantile(null,probs=seq(0,1,length.out=nd),names=FALSE)
   shapiro.test(qt)$p.value<0.05
 }
+
 ##-------------------------------------------------------------------------
 ##check if snow cluster is loaded
 isParallel<-function(){
@@ -789,66 +577,6 @@ isParallel<-function(){
   })
   all(c(b1,b2))
 }
-
-##-------------------------------------------------------------------------
-## get ld data from the RTNdata package
-getldata<-function(chrom="chr22",package="RTNdata.LDHapMap.rel27"){
-  chrs<-c(paste("chr",1:22,sep=""),"chrX")
-  if(chrom==chrs[1]){data('ldatachr1', package=package, envir=environment());ldata<-get("ldatachr1")
-  } else if(chrom==chrs[2]){data('ldatachr2', package=package, envir=environment());ldata<-get("ldatachr2")
-  } else if(chrom==chrs[3]){data('ldatachr3', package=package, envir=environment());ldata<-get("ldatachr3")
-  } else if(chrom==chrs[4]){data('ldatachr4', package=package, envir=environment());ldata<-get("ldatachr4")
-  } else if(chrom==chrs[5]){data('ldatachr5', package=package, envir=environment());ldata<-get("ldatachr5")
-  } else if(chrom==chrs[6]){data('ldatachr6', package=package, envir=environment());ldata<-get("ldatachr6")
-  } else if(chrom==chrs[7]){data('ldatachr7', package=package, envir=environment());ldata<-get("ldatachr7")
-  } else if(chrom==chrs[8]){data('ldatachr8', package=package, envir=environment());ldata<-get("ldatachr8")
-  } else if(chrom==chrs[9]){data('ldatachr9', package=package, envir=environment());ldata<-get("ldatachr9")
-  } else if(chrom==chrs[10]){data('ldatachr10', package=package, envir=environment());ldata<-get("ldatachr10")
-  } else if(chrom==chrs[11]){data('ldatachr11', package=package, envir=environment());ldata<-get("ldatachr11")
-  } else if(chrom==chrs[12]){data('ldatachr12', package=package, envir=environment());ldata<-get("ldatachr12")
-  } else if(chrom==chrs[13]){data('ldatachr13', package=package, envir=environment());ldata<-get("ldatachr13")
-  } else if(chrom==chrs[14]){data('ldatachr14', package=package, envir=environment());ldata<-get("ldatachr14")
-  } else if(chrom==chrs[15]){data('ldatachr15', package=package, envir=environment());ldata<-get("ldatachr15")
-  } else if(chrom==chrs[16]){data('ldatachr16', package=package, envir=environment());ldata<-get("ldatachr16")
-  } else if(chrom==chrs[17]){data('ldatachr17', package=package, envir=environment());ldata<-get("ldatachr17")
-  } else if(chrom==chrs[18]){data('ldatachr18', package=package, envir=environment());ldata<-get("ldatachr18")
-  } else if(chrom==chrs[19]){data('ldatachr19', package=package, envir=environment());ldata<-get("ldatachr19")
-  } else if(chrom==chrs[20]){data('ldatachr20', package=package, envir=environment());ldata<-get("ldatachr20")
-  } else if(chrom==chrs[21]){data('ldatachr21', package=package, envir=environment());ldata<-get("ldatachr21")
-  } else if(chrom==chrs[22]){data('ldatachr22', package=package, envir=environment());ldata<-get("ldatachr22")
-  } else if(chrom==chrs[23]){data('ldatachrX', package=package, envir=environment());ldata<-get("ldatachrX")
-  }
-  return(ldata)
-}
-## get snps from RTNdata after the LD threshold is applyed
-getLdPop<-function(package="RTNdata.LDHapMap.rel27",scaledown=TRUE, verbose=TRUE){
-  chrs<-c(paste("chr",1:22,sep=""),"chrX")
-  popsnps<-NULL
-  if(verbose) cat("Extracting 'snpop' from LD data...\n")
-  if(verbose) pb <- txtProgressBar(style=3)
-  for(i in 1:length(chrs)){
-    if(verbose) setTxtProgressBar(pb, i/length(chrs))
-    chr<-chrs[i]
-    ldata<-getldata(chr,package)
-    tp1<-ldata[!base::duplicated(ldata$marker1),c("marker1","position1")]
-    tp2<-ldata[!base::duplicated(ldata$marker2),c("marker2","position2")]
-    tp2<-tp2[!tp2$marker2%in%tp1$marker1,]
-    colnames(tp1)<-colnames(tp2)<-c("rsid","position")
-    tp1<-rbind(tp1,tp2)
-    tp1<-tp1[sort.list(tp1$position),]
-    tp1<-data.frame(rsid=tp1$rsid,chrom=chr,position=tp1$position,stringsAsFactors = FALSE)
-    if(scaledown){
-      n<-ceiling(nrow(tp1)*0.1)
-      tp1<-tp1[sample(nrow(tp1),n),]
-    }
-    popsnps<-rbind(popsnps,tp1)
-  }
-  if(verbose) close(pb)
-  popsnps<-popsnps[!base::duplicated(popsnps$rsid),]
-  rownames(popsnps)<-NULL
-  popsnps
-}
-
 
 ###########################################################################
 ## Methods (under development) to extract consolidated results
@@ -873,8 +601,8 @@ eqtlExtractFull<-function(vSet,annot,gxdata,snpdata){
       geneList<-.mtdata(subject)$mappedAnnotations
       res<-lapply(1:length(query@metadata$markers),function(j){
         snpList<-.mtdata(query)$mappedMarkers[[j]]
-        ov<-overlaps@queryHits%in%which(query@metadata$index==j)
-        ov<-unique(overlaps@subjectHits[ov])
+        ov<-S4Vectors::from(overlaps)%in%which(query@metadata$index==j)
+        ov<-unique(S4Vectors::to(overlaps)[ov])
         gList<-geneList[ov]
         if(length(gList)>0 && length(snpList)>0){
           res<-eqtlTestDetailed(geneList=as.character(gList),snpList=as.integer(snpList),gxdata,snpdata)
@@ -984,8 +712,8 @@ eqtlExtractAnova<-function(vSet,annot,gxdata,snpdata){
       resfit<-NULL
       junk<-lapply(1:length(query@metadata$markers),function(j){
         snpList<-.mtdata(query)$mappedMarkers[[j]]
-        ov<-overlaps@queryHits%in%which(query@metadata$index==j)
-        ov<-unique(overlaps@subjectHits[ov])
+        ov<-S4Vectors::from(overlaps)%in%which(query@metadata$index==j)
+        ov<-unique(S4Vectors::to(overlaps)[ov])
         gList<-geneList[ov]
         if(length(gList)>0 && length(snpList)>0){
           res<-eqtlTestDetailedAnova(geneList=as.character(gList),snpList=as.integer(snpList),gxdata,snpdata)
@@ -1122,7 +850,7 @@ report.vset<-function(variantSet){
     if(class(vset)=="IRanges"){
       res<-lapply(names(vset@metadata$blocks),function(rs){
         linked_rs<-names(vset@metadata$blocks[[rs]])
-        cbind(rs,linked_rs)
+        cbind(rs,rev(linked_rs))
       })
     } else {
       stop("Please, check 'vset' class! Method implemented for 'IRanges' objects only!")
@@ -1131,13 +859,14 @@ report.vset<-function(variantSet){
   })
   summ<-NULL
   junk<-lapply(lkmarkers,function(lt){
-    lapply(lt,function(lt){
-      summ<<-rbind(summ,lt)
+    lapply(lt,function(ltt){
+      summ<<-rbind(summ,ltt)
     })
   })
   idx<-which(summ[,1]!=summ[,2])
   summ<-summ[idx,]
   summ<-data.frame(summ,stringsAsFactors = FALSE)
+  colnames(summ) <- c("rs","linked_rs")
   return(summ)
 }
 

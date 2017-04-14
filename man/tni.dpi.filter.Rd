@@ -58,7 +58,7 @@ rtni <- new("TNI", gexp=dt4rtn$gexp, transcriptionFactors=dt4rtn$tfs[tfs4test])
 rtni <- tni.preprocess(rtni,gexpIDs=dt4rtn$gexpIDs)
 
 # permutation analysis (infers the reference/relevance network)
-rtni<-tni.permutation(rtni)
+rtni<-tni.permutation(rtni, nPermutations=100)
 
 # dpi filter (infers the transcriptional network)
 rtni<-tni.dpi.filter(rtni)

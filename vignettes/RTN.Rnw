@@ -183,7 +183,8 @@ Alternatively, the gene set enrichment analysis (GSEA) can be used to assess if 
 
 \begin{small}
 <<label=Run GSEA analysis pipeline, eval=TRUE, results=hide>>=
-rtna <- tna.gsea1(rtna, stepFilter=FALSE)
+rtna <- tna.gsea1(rtna, stepFilter=FALSE, nPermutations=100)
+# ps. default 'nPermutations' is 1000.
 @ 
 \end{small}
 \bigbreak
@@ -194,7 +195,8 @@ The two-tailed GSEA tests whether positive or negative targets for a TF are enri
 
 \begin{small}
 <<label=Run GSEA analysis pipeline, eval=TRUE, results=hide>>=
-rtna <- tna.gsea2(rtna, tfs = "PTTG1")
+rtna <- tna.gsea2(rtna, tfs="PTTG1", nPermutations=100)
+# ps. default 'nPermutations' is 1000.
 @ 
 \end{small}
 \bigbreak

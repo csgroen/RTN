@@ -222,8 +222,8 @@ To visualize the GSEA distributions, the user can apply the \Rfunction{tna.plot.
 
 \begin{small}
 <<label=Plot GSEA, eval=TRUE, results=hide>>=
-tna.plot.gsea1(rtna, file="tna_gsea1", labPheno="abs(log2) diff. expression values") 
-tna.plot.gsea2(rtna, file="tna_gsea2", labPheno="log2 diff. expression values") 
+tna.plot.gsea1(rtna, file="tna_gsea1", labPheno="abs(log2) diff. expression") 
+tna.plot.gsea2(rtna, file="tna_gsea2", labPheno="log2 diff. expression") 
 @ 
 \end{small}
 

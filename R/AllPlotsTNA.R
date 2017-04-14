@@ -268,7 +268,7 @@ gsplot1 <- function(runningScore, enrichmentScore, positions, adjpv,
 ##Plot 2-tailed enrichment analysis from TNA objects.
 tna.plot.gsea2<-function(object, labPheno="tna", file=labPheno, filepath=".", regulon.order="size", 
                          ntop=NULL, tfs=NULL, ylimPanels=c(-3.0,3.0,-0.5,0.5), heightPanels=c(2.0,0.8,5.0), 
-                         width=2.7, height=3.0, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
+                         width=2.8, height=3.0, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
                          xlab="Position in the ranked list of genes", 
                          alpha=1.0, sparsity=10, autoformat=TRUE, ...) {
   #checks

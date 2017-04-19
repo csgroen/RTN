@@ -1,8 +1,7 @@
 exportClasses(
  "TNI",
  "TNA",
- "AVS",
- "TPC"
+ "AVS"
 )
 
 exportMethods(
@@ -25,10 +24,7 @@ exportMethods(
   "tna.graph",
   "avs.vse",
   "avs.evse",
-  "avs.get",
-  "tni2tpc.corpcor",
-  "tpc.countedges",
-  "tpc.fuseNetwork"
+  "avs.get"
 )
 
 export(
@@ -44,16 +40,12 @@ importFrom(minet, aracne)
 importFrom(snow, parSapply, parLapply, makeCluster, stopCluster, clusterExport)
 importFrom(limma, lmFit, makeContrasts, eBayes, contrasts.fit, decideTests)
 importFrom(RedeR, att.mapv, att.setv, att.sete)
-importFrom(data.table,data.table,setkey)
-importFrom(IRanges,IRanges,overlapsAny,findOverlaps,NCList,reduce)
-importFrom(ff,ff)
-importFrom(S4Vectors, from, to)
-importFrom(car,powerTransform,bcPower)
-import(igraph)
+importFrom(igraph, ecount, vcount, degree, graph.empty, vertices, graph.edgelist, get.edgelist, remove.graph.attribute, E, V, 'V<-', 'E<-')
+importFrom(data.table, data.table, setkey)
+importFrom(IRanges, IRanges, overlapsAny, findOverlaps, NCList, reduce)
+importFrom(car, powerTransform, bcPower)
 import(methods)
-importFrom(corpcor,pcor.shrink)
-importFrom(fdrtool,fdrtool)
-importFrom(reshape2,melt)
+importFrom(S4Vectors, from, to)
 importFrom(stats, pchisq, complete.cases)
 importFrom(grDevices, col2rgb, colorRampPalette, dev.off, palette, pdf, rgb)
 importFrom(graphics, abline, axis, boxplot, hist, image, layout, legend, lines, mtext, par, plot, plot.new, points, polygon, segments, title)

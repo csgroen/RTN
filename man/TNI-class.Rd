@@ -11,7 +11,6 @@
 \alias{tni.conditional,TNI-method}
 \alias{tni.gsea2,TNI-method}
 \alias{tni2tna.preprocess,TNI-method}
-\alias{tni2tpc.corpcor,TNI-method}
 
 \title{Class \code{"TNI"}: an S4 class for Transcriptional Network Inference.}
 
@@ -68,8 +67,7 @@ Objects can be created by calls of the form \code{new("TNI", gexp, transcription
     \item{tni.get}{\code{signature(object = "TNI")}: see \code{\link[RTN:tni.get]{tni.get}} }        
     \item{tni.graph}{\code{signature(object = "TNI")}: see \code{\link[RTN:tni.graph]{tni.graph}} } 
     \item{tni.gsea2}{\code{signature(object = "TNI")}: see \code{\link[RTN:tni.gsea2]{tni.gsea2}} }
-    \item{tni2tna.preprocess}{\code{signature(object = "TNI")}: see \code{\link[RTN:tni2tna.preprocess]{tni2tna.preprocess}} }  
-    \item{tni2tpc.corpcor}{\code{signature(object = "TNI")}: see  \code{\link[RTN:tni2tpc.corpcor]{tni2tpc.corpcor}}}
+    \item{tni2tna.preprocess}{\code{signature(object = "TNI")}: see \code{\link[RTN:tni2tna.preprocess]{tni2tna.preprocess}} }
 	 }
 }
 

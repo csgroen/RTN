@@ -6,13 +6,20 @@
   \itemize{
     \item Concluded the VSE/EVSE pipeline, including examples.
     \item Improved computational performance and RTN workflows.
-    \item Introduced partial correlation metric to derive regulons.
+    \item {In order to improve stability and portability, all dependencies have 
+    been extensively revised and, when available, replaced with more stable options.
+    }
+    \item { In order to simplify documentation and usability, some pipelines have 
+    been revised and should be distributed as separated packages, or 'on demand', 
+    focused on the main workflow, as for example the new 'RTNduals' package.
+    }
   }
 }
 
 \section{Version 1.12.0}{
   \itemize{
     \item Improved computational performance and RTN workflows.
+    \item Introduced partial correlation metric to derive regulons.    
   }
 }
 

@@ -83,16 +83,4 @@ setGeneric("avs.evse",
 setGeneric("avs.get",
            function(object, what="summary", report=FALSE, pValueCutoff=NULL) 
              standardGeneric("avs.get"), package="RTN")
-##-------------------------------------------------------------------------
-setGeneric("tni2tpc.corpcor",
-           function(object, verbose=TRUE)
-             standardGeneric("tni2tpc.corpcor"), package="RTN")
-
-setGeneric("tpc.fuseNetwork",
-           function(objectlist, verbose=TRUE)
-             standardGeneric("tpc.fuseNetwork"), package="RTN")
-
-setGeneric("tpc.countedges",
-           function(object, cutoff.method="prob", cutoff.tr = 0.9, verbose=TRUE)
-             standardGeneric("tpc.countedges"), package="RTN")
 

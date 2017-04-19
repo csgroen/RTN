@@ -23,23 +23,6 @@ setClass(
   )
 )
 
-##Class TPC (TNI pcor.shrink method)
-setClass(
-  "TPC",
-  representation(
-    gexp="matrix",
-    transcriptionFactors="character",
-    results.pcor="list",
-    status="character"
-  ),
-  prototype=list(
-    gexp=matrix(),
-    transcriptionFactors=character(),
-    results.pcor=list(),
-    status=character()
-  )
-)
-
 ##Class TNA (Transcriptional Network Analysis)
 setClass(
   "TNA",

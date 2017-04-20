@@ -415,7 +415,7 @@ get.merged.data2<-function(gs.name,phenotype,rgcs,resgsea,exponent){
 #--subfunction for tna.plot.gsea2
 check.format2<-function(tests){
   ylimPanels<-rep(0,4)
-  tp<-c(min(min(tests$geneList)),max(tests$geneList))
+  tp<-c(min(tests$geneList),max(tests$geneList))
   tpp<-as.integer(tp)
   if(tp[1]<tpp[1])tpp[1]=tpp[1]-1
   if(tp[2]>tpp[2])tpp[2]=tpp[2]+1
@@ -430,7 +430,8 @@ check.format2<-function(tests){
   tpp<-round(tp,digits=1)
   if(tp[1]<tpp[1])tpp[1]=tpp[1]-0.1
   if(tp[2]>tpp[2])tpp[2]=tpp[2]+0.1
-  tpp[2]<-ifelse(tpp[2]>=0.3,tpp[2],0.3)
+  tpp[1]<-ifelse(tpp[1] < (-0.5),tpp[1],-0.5)
+  tpp[2]<-ifelse(tpp[2] > ( 0.5),tpp[2], 0.5)
   ylimPanels[3:4]<-tpp
   ylimPanels
 }

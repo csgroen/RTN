@@ -9,14 +9,16 @@ tnai.checks <- function(name, para) {
       stop("'maxgap' should be an integer value >=0!\n",call.=FALSE)
   }
   else if(name=="tna.what"){
-    opts<-c("tnet","tfs","pheno","regulons","refregulons","para","mra","gsea1","gsea2","overlap","synergy","shadow","summary","status",
-            "regulons.and.pheno","refregulons.and.pheno","regulons.and.mode","refregulons.and.mode","nondpiregulons.and.mode")
+    opts<-c("tnet","tfs","pheno","regulons","refregulons","para","mra","gsea1",
+            "gsea2","overlap","synergy","shadow","summary","status",
+            "regulons.and.pheno","refregulons.and.pheno","regulons.and.mode",
+            "refregulons.and.mode","nondpiregulons.and.mode","annotation")
     if(!is.character(para) || length(para)!=1 || !(para %in% opts))
       stop(paste("'what' should be any one of the options: \n", paste(opts,collapse = ", ") ),call.=FALSE )
   }
   else if(name=="tni.what"){
     opts<-c("gexp","tfs","para","refnet","tnet","refregulons","regulons","cdt","cdtrev", "summary","status",
-            "regulons.and.mode","refregulons.and.mode")
+            "regulons.and.mode","refregulons.and.mode","annotation")
     if(!is.character(para) || length(para)!=1 || !(para %in% opts))
       stop(paste("'what' should be any one of the options: \n", paste(opts,collapse = ", ") ) ,call.=FALSE )
   }

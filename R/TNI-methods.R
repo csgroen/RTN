@@ -593,6 +593,8 @@ setMethod(
       if(!is.null(idkey))warning("'idkey' argument has no effect on consolidated tables!")
     } else if(what=="summary"){
       query<-object@summary
+    } else if(what=="annotation"){
+      query<-object@annotation
     } else if(what=="status"){
       query<-object@status
     } else if(what=="gsea2"){

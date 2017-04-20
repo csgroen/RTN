@@ -19,7 +19,7 @@ idkey=NULL)
 an object of class 'TNI' \code{\link[RTN:TNI-class]{TNI-class}}.
 }
 \item{what}{
-a single character value specifying which information should be retrieved from the slots. Options: 'gexp', 'tfs', 'para', 'refnet', 'tnet','refregulons','regulons','cdt', 'summary' and 'status'. Regulons can also be retrieved mapped to the assiged mode of action ('regulons.and.mode' or 'refregulons.and.mode').
+a single character value specifying which information should be retrieved from the slots. Options: 'gexp', 'tfs', 'para', 'refnet', 'tnet','refregulons','regulons','cdt', 'summary', 'annotation' and 'status'. Regulons can also be retrieved mapped to the assiged mode of action ('regulons.and.mode' or 'refregulons.and.mode').
 }
 \item{order}{
 a single logical value specifying whether or not the output data should be ordered by significance. 

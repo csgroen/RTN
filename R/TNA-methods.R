@@ -332,6 +332,8 @@ setMethod(
       if(!is.null(idkey))query<-translateQuery(query,idkey,object,"listAndNames",reportNames)
     } else if(what=="summary"){
       query<-object@summary
+    } else if(what=="annotation"){
+      query<-object@annotation
     } else if(what=="status"){
       query<-object@status
     }

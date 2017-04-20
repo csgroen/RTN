@@ -21,7 +21,7 @@ an object of class 'TNA' \code{\link[RTN:TNA-class]{TNA-class}}.
 \item{what}{
 a single character value specifying which information should be retrieved from the slots. 
 Options: 'tnet', 'refnet', 'tfs', 'pheno', 'regulons','refregulons', 'para', 'mra', 'gsea1', 
-'gsea2','overlap', 'synergy', 'shadow', 'summary' and 'status'. Regulons can also be retrieved 
+'gsea2','overlap', 'synergy', 'shadow', 'summary', 'annotation' and 'status'. Regulons can also be retrieved 
 mapped to the available phenotype vector ('regulons.and.pheno' or 'refregulons.and.pheno') or
 mapped to the assiged mode of action ('regulons.and.mode' or 'refregulons.and.mode').
 }

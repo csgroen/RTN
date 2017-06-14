@@ -14,7 +14,7 @@ tna.plot.gsea1(object, labPheno="tna", file=labPheno, filepath=".", regulon.orde
 ntop=NULL, tfs=NULL, ylimPanels=c(0.0,3.5,0.0,0.8), heightPanels=c(1,1,3), 
 width=4.4, height=4, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
 xlab="Position in the ranked list of genes", alpha=0.5, 
-sparsity=10, autoformat=TRUE, ...)
+sparsity=10, autoformat=TRUE, plotpdf=TRUE, ...)
 }
 
 \arguments{
@@ -68,6 +68,9 @@ a single integer value (>1) specifying the density of the dots representing the 
 \item{autoformat}{
 a single logical value specifying to set the graph format using predefined themes. This option 
 overrides the "ylimPanels" argument.
+}
+\item{plotpdf}{
+a single logical value specifying to whether to plot a PDF file or directly to Viewer.
 }
 \item{\dots}{
 other arguments used by the function pdf.

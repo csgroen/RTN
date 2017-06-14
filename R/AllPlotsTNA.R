@@ -8,7 +8,7 @@ tna.plot.gsea1<-function(object,  labPheno="tna", file=labPheno, filepath=".", r
                          ntop=NULL, tfs=NULL, ylimPanels=c(0.0,3.5,0.0,0.8), heightPanels=c(1,1,3), 
                          width=4.4, height=4, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
                          xlab="Position in the ranked list of genes", alpha=0.5, sparsity=10, 
-                         autoformat=TRUE, ...) {
+                         autoformat=TRUE, plotpdf = TRUE, ...) {
   #checks
   if(class(object)!="TNA" || object@status$analysis["GSEA1"]!="[x]"){
     cat("-invalid 'GSEA1' status! \n")
@@ -63,7 +63,7 @@ tna.plot.gsea1<-function(object,  labPheno="tna", file=labPheno, filepath=".", r
              regulon.order=regulon.order,ylimPanels=ylimPanels,   
              heightPanels=heightPanels, width=width, height=height,
              ylabPanels=ylabPanels,xlab=xlab,alpha=alpha, sparsity=sparsity, 
-             autoformat=autoformat, ...=...)
+             autoformat=autoformat, plotpdf=plotpdf, ...=...)
 }
 #-------------------------------------------------------------------------------------
 #--subfunction for tna.plot.gsea1
@@ -72,7 +72,7 @@ plot.gsea1<-function(resgsea, rgcs, phenotype, orderAbsValue, nPermutations, exp
                      ylimPanels=c(0.0,3.5,0.0,0.8), heightPanels=c(1,1,3), width=6, 
                      height=5, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
                      xlab="Position in the ranked list of genes", alpha=0.5, sparsity=10, 
-                     autoformat=TRUE, ...) {
+                     autoformat=TRUE, plotpdf = TRUE, ...) {
   ##return valid arg
   regulon.order=tnai.checks(name="regulon.order",regulon.order)
   ##-----check available results
@@ -101,7 +101,7 @@ plot.gsea1<-function(resgsea, rgcs, phenotype, orderAbsValue, nPermutations, exp
   if(autoformat)ylimPanels<-check.format1(tests)
   ##-----make plot
   make.plot1(tests,labPheno,file,filepath,heightPanels,ylimPanels,ylabPanels,xlab,width, 
-             height,alpha,sparsity,...=...)
+             height,alpha,sparsity,plotpdf, ...=...)
   
 }
 #-------------------------------------------------------------------------------------
@@ -150,12 +150,14 @@ check.format1<-function(tests){
 #-------------------------------------------------------------------------------------
 #--subfunction for tna.plot.gsea1
 make.plot1 <- function(tests, labPheno, file, filepath, heightPanels, ylimPanels, ylabPanels,
-                       xlab, width, height, alpha, sparsity, ...) {
-  pdf(file=file.path(filepath, paste(file,".pdf", sep="")), width=width, height=height)
+                       xlab, width, height, alpha, sparsity, plotpdf, ...) {
+  if (plotpdf){
+    pdf(file=file.path(filepath, paste(file,".pdf", sep="")), width=width, height=height)
+  }
   gsplot1(tests$runningScore, tests$enrichmentScore, tests$positions, tests$adjpv, tests$geneList, 
-             tests$labels, heightPanels, ylimPanels, ylabPanels, xlab, labPheno, alpha, sparsity, 
-             ...=... )
-  dev.off()
+          tests$labels, heightPanels, ylimPanels, ylabPanels, xlab, labPheno, alpha, sparsity, 
+          ...=... )
+  if (plotpdf)dev.off()
 }
 #-------------------------------------------------------------------------------------
 #--subfunction for tna.plot.gsea1
@@ -270,7 +272,7 @@ tna.plot.gsea2<-function(object, labPheno="tna", file=labPheno, filepath=".", re
                          ntop=NULL, tfs=NULL, ylimPanels=c(-3.0,3.0,-0.5,0.5), heightPanels=c(2.0,0.8,5.0), 
                          width=2.8, height=3.0, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
                          xlab="Position in the ranked list of genes", 
-                         alpha=1.0, sparsity=10, autoformat=TRUE, ...) {
+                         alpha=1.0, sparsity=10, autoformat=TRUE, plotpdf = TRUE, ...) {
   #checks
   if(class(object)!="TNA" || object@status$analysis["GSEA2"]!="[x]"){
     cat("-invalid 'GSEA2' status! \n")
@@ -329,7 +331,7 @@ tna.plot.gsea2<-function(object, labPheno="tna", file=labPheno, filepath=".", re
              ylimPanels=ylimPanels, heightPanels=heightPanels, 
              width=width, height=height, ylabPanels=ylabPanels, 
              xlab=xlab, alpha=alpha, sparsity=sparsity, 
-             autoformat=autoformat, ...=...)
+             autoformat=autoformat, plotpdf=plotpdf, ...=...)
 }
 
 ##------------------------------------------------------------------------------
@@ -339,7 +341,7 @@ plot.gsea2<-function(resgsea, rgcs, phenotype, nPermutations, exponent,
                      ntop=NULL, tfs=NULL, ylimPanels=c(-1.0,3.0,-0.5,0.5), heightPanels=c(1.5,0.7,5.0), 
                      width=4, height=3.5, ylabPanels=c("Phenotype","Regulon","Enrichment score"), 
                      xlab="Position in the ranked list of genes", alpha=1.0, 
-                     sparsity=10, autoformat=TRUE, ...) {
+                     sparsity=10, autoformat=TRUE, plotpdf=TRUE, ...) {
   ##return valid arg
   regulon.order=tnai.checks(name="regulon.order",regulon.order)
   ##-----check available results
@@ -378,7 +380,7 @@ plot.gsea2<-function(resgsea, rgcs, phenotype, nPermutations, exponent,
     if(autoformat)ylimPanels<-check.format2(tests)
     ##-----make plot
     make.plot2(tests,labPheno,file,filepath,heightPanels,ylimPanels,ylabPanels,
-               xlab,width,height,alpha,sparsity, ...=...)
+               xlab,width,height,alpha,sparsity, plotpdf, ...=...)
   }
 }
 #-------------------------------------------------------------------------------------
@@ -438,14 +440,16 @@ check.format2<-function(tests){
 #-------------------------------------------------------------------------------------
 #--subfunction for tna.plot.gsea2
 make.plot2 <- function(tests, labPheno, file, filepath, heightPanels, ylimPanels, ylabPanels,
-                       xlab, width, height, alpha, sparsity, ...) {
-  pdf(file=file.path(filepath, paste(file,"_",tests$label,".pdf", sep="")), 
+                       xlab, width, height, alpha, sparsity, plotpdf,...) {
+  if (plotpdf){
+    pdf(file=file.path(filepath, paste(file,"_",tests$label,".pdf", sep="")), 
       width=width, height=height)
+  }
   gsplot2(tests$testup$runningScore, tests$testup$enrichmentScore, 
           tests$testdown$runningScore, tests$testdown$enrichmentScore,tests$dES, 
           tests$positions, tests$adjpv, tests$geneList, tests$label, heightPanels, 
           ylimPanels, ylabPanels, xlab, labPheno, alpha, sparsity, ...=... )
-  dev.off()
+  if (plotpdf)dev.off()
 }
 #-------------------------------------------------------------------------------------
 #--subfunction for tna.plot.gsea2

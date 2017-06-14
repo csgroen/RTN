@@ -277,9 +277,12 @@ setMethod(
       }
     }
     #----check sd in gexp
-    sd.check<-apply(object@gexp,1,sd)
-    sd.check<-sd.check==0
-    if(any(sd.check)){
+    sd.check <- apply(object@gexp,1,sd)
+    if(any(is.na(sd.check))){
+      stop("NOTE: unpredicted exception found in the input data matrix! 
+           (a possible cause is the presence of 'Inf' values). ")
+    }
+    if(any(sd.check==0)){
       if(verbose)cat("--Removing inconsistent data: standard deviation is zero for", sum(sd.check),"gene(s)! \n")
       rmv<-rownames(object@annotation)[sd.check]
       object@gexp<-object@gexp[!sd.check,]

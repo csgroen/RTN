@@ -650,6 +650,10 @@ tnai.checks <- function(name, para) {
         stop("'idkey' should be a character value with length=1 !",call.=FALSE)
     }
   }
+  else if (name=="plotpdf") {
+    if(!is.logical(para) || length(para)!=1)
+      stop("'plotpdf' should be a logical value with length=1 !", call.=FALSE)
+  }
   else {
     stop("...<",name,"> check is missing!!",call. = FALSE)
   }
